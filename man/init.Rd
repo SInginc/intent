@@ -6,13 +6,7 @@
 \usage{
 init(
   path = ".",
-  repos = if (Sys.info()[["sysname"]] == "Linux") {
-     c(CRAN =
-    "https://packagemanager.posit.co/cran/__linux__/manylinux_2_28/latest")
- } else {
-
-     c(CRAN = "https://packagemanager.posit.co/cran/latest")
- }
+  repos = c(CRAN = "https://packagemanager.posit.co/cran/latest")
 )
 }
 \arguments{

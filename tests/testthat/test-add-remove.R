@@ -18,10 +18,10 @@ test_that("intent::add and intent::remove work as expected", {
 
   # Initialize
   pkg_to_test <- "desc"
-  suppressMessages(init(
+  init(
     path = tmp_dir,
     repos = c(CRAN = "https://packagemanager.posit.co/cran/latest")
-  ))
+  )
 
   lib_path <- callr::r(
     function(old_dir, tmp_dir, pkg_to_test) {

@@ -10,15 +10,9 @@
 #' @export
 init <- function(
   path = ".",
-  repos = if (Sys.info()[["sysname"]] == "Linux") {
-    c(
-      "CRAN" = "https://packagemanager.posit.co/cran/__linux__/manylinux_2_28/latest"
-    )
-  } else {
-    c(
-      "CRAN" = "https://packagemanager.posit.co/cran/latest"
-    )
-  }
+  repos = c(
+    "CRAN" = "https://packagemanager.posit.co/cran/latest"
+  )
 ) {
   check_missing_deps()
 
@@ -40,15 +34,15 @@ init <- function(
 
   if (!file.exists(desc_path)) {
     message("Creating DESCRIPTION file...")
-    d <- desc::description$new("!new")
-    d$set("Package", pkg_name)
+    rproject <- desc::description$new("!new")
+    rproject$set("Package", pkg_name)
   } else {
-    d <- desc::description$new(desc_path)
+    rproject <- desc::description$new(desc_path)
   }
 
-  d$set_dep("pak", type = "Suggests")
-  d$set_dep("renv", type = "Suggests")
-  d$set_dep("intent", type = "Suggests")
+  rproject$set_dep("pak", type = "Suggests")
+  rproject$set_dep("renv", type = "Suggests")
+  rproject$set_dep("intent", type = "Suggests")
 
   # Add repositories as custom Config/intent fields
   if (length(repos) > 0) {
@@ -60,49 +54,49 @@ init <- function(
     }
 
     for (i in seq_along(repos)) {
-      d$set(
-        sprintf("Config/intent/repos/%s", repo_names[i]),
-        repos[i]
+      rproject$set(
+        sprintf("Config/intent/repos/%s", repo_names[[i]]),
+        repos[[i]]
       )
     }
   }
 
-  d$write(desc_path)
+  rproject$write(desc_path)
 
-  # 2. State Init: renv::init(bare = FALSE)
+  # 2. State Init: renv::init(bare = TRUE)
   # We let renv initialize fully to avoid path aliasing issues during independent snapshot
   # And we set explicit snapshot type immediately via settings.
-  callr::r(
-    function(project_dir, repos) {
-      renv::init(
-        project = project_dir,
-        bare = TRUE,
-        restart = FALSE,
-        settings = list(
-          snapshot.type = "explicit"
-        ),
-        repos = repos,
-        load = TRUE
-      )
-      renv::install(
-        "pak",
-        repos = repos,
-        library = renv::paths$library(project = project_dir),
-        lock = TRUE,
-        prompt = FALSE
-      )
-      renv::snapshot(
-        lockfile = file.path(project_dir, "renv.lock"),
-        type = "explicit",
-        repos = repos,
-        prompt = FALSE,
-        dev = TRUE
-      )
-    },
-    args = list(
-      project_dir = project_dir,
-      repos = repos
-    )
+  renv::init(
+    project = project_dir,
+    bare = TRUE,
+    restart = FALSE,
+    settings = list(
+      snapshot.type = "explicit"
+    ),
+    repos = repos,
+    load = FALSE
+  )
+  utils::install.packages(
+    pkgs = c("pak", "renv"),
+    lib = renv::paths$library(project = project_dir),
+    repos = repos
+  )
+  renv::snapshot(
+    project = project_dir,
+    library = renv::paths$library(project = project_dir),
+    lockfile = file.path(project_dir, "renv.lock"),
+    packages = c("pak", "renv"),
+    exclude = c("intent"),
+    repos = repos,
+    prompt = FALSE
+  )
+  # HACK
+  renv_lock <- renv::lockfile_read(file.path(project_dir, "renv.lock"))
+  renv_lock$R$Repositories <- repos
+  renv::lockfile_write(
+    renv_lock,
+    file = file.path(project_dir, "renv.lock"),
+    project = project_dir
   )
 
   # 3. Bootstrapping: Configure .Rprofile
@@ -122,7 +116,7 @@ init <- function(
       file = renviron_path,
       append = TRUE
     )
-    write("RENV_CONFIG_PAK_ENABLED=TRUE", file = renviron_path, append = TRUE)
+    write("RENV_CONFIG_PAK_ENABLED = TRUE", file = renviron_path, append = TRUE)
     write("# intent modification: end", file = renviron_path, append = TRUE)
   }
 
