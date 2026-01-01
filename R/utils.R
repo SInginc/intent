@@ -1,3 +1,8 @@
+#' @keywords internal
+`%||%` <- function(x, y) {
+  if (is.null(x)) y else x
+}
+
 #' Check for Missing Dependencies
 #'
 #' Checks if `renv` are installed. If not, stops with an informative message.
@@ -21,25 +26,43 @@ check_missing_deps <- function() {
   }
 }
 
+#' Load Repositories from DESCRIPTION
+#'
+#' Reads the repositories defined in `Config/intent/repos/` and sets them
+#' in the global `options(repos)`.
 #' @keywords internal
-rv_install <- function(pkgs) {
-  lib_loc <- renv::paths$library()
-  message("Installing packages into ", lib_loc, "...")
-  renv::install(pkgs, library = lib_loc, lock = TRUE)
+load_intent_repos <- function() {
+  # Find DESCRIPTION. This might be tricky if not in project root,
+  # but intent usually operates on the current project.
+  path_to_desc <- file.path(renv::project(), "DESCRIPTION")
+  if (file.exists(path_to_desc)) {
+    repos <- get_repos(path_to_desc)
+    options(repos = repos)
+  }
 }
 
 #' @keywords internal
-rv_snapshot <- function() {
+intent_install <- function(pkgs) {
+  load_intent_repos()
+  lib_loc <- renv::paths$library()
+  message("Installing packages into ", lib_loc, "...")
+  pak::pkg_install(pkgs, lib = lib_loc, ask = FALSE)
+}
+
+#' @keywords internal
+intent_snapshot <- function() {
+  load_intent_repos()
   renv::snapshot(dev = TRUE, prompt = FALSE)
 }
 
 #' @keywords internal
-rv_restore <- function() {
+intent_restore <- function() {
+  load_intent_repos()
   renv::restore(clean = TRUE, prompt = FALSE)
 }
 
 #' @keywords internal
-rv_set_project_dep <- function(package, type, version = "*") {
+intent_set_project_dep <- function(package, type, version = "*") {
   desc::desc_set_dep(
     package = package,
     type = type,
@@ -50,7 +73,7 @@ rv_set_project_dep <- function(package, type, version = "*") {
 }
 
 #' @keywords internal
-rv_del_project_dep <- function(package) {
+intent_del_project_dep <- function(package) {
   desc::desc_del_dep(
     package = package,
     file = file.path(renv::project(), "DESCRIPTION"),
@@ -59,7 +82,7 @@ rv_del_project_dep <- function(package) {
 }
 
 #' @keywords internal
-rv_get_project_deps <- function() {
+intent_get_project_deps <- function() {
   desc::desc_get_deps(
     file = file.path(renv::project(), "DESCRIPTION")
   )

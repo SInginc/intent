@@ -15,17 +15,21 @@ Depends:
 Imports:
     callr,
     desc,
+    pak,
     renv
 Suggests:
     covr (>= 3.6.5),
     devtools (>= 2.4.6),
     jsonlite (>= 2.0.0),
     languageserver (>= 0.3.16),
-    pak (>= 0.9.1),
+    mockery (>= 0.4.5),
     pkgload (>= 1.4.1),
     testthat (>= 3.0.0),
-    usethis (>= 3.2.1)
+    usethis (>= 3.2.1),
+    withr (>= 3.0.2)
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
 RoxygenNote: 7.3.3
+Config/intent/repos/rspm: https://packagemanager.posit.co/cran/latest
+Config/intent/repos/r-multiverse: https://community.r-multiverse.org

@@ -23,7 +23,7 @@ remove <- function(pkgs) {
   # 1. Manifest Update: Remove from DESCRIPTION
   message("Removing ", paste(pkgs, collapse = ", "), " from DESCRIPTION")
   for (pkg in pkgs) {
-    rv_del_project_dep(package = pkg)
+    intent_del_project_dep(package = pkg)
   }
 
   # 2. Cleanup: Remove from library
@@ -35,12 +35,12 @@ remove <- function(pkgs) {
   # Because we are in explicit mode and removed it from DESCRIPTION,
   # snapshot should remove it from lockfile.
   message("Updating lockfile...")
-  rv_snapshot()
+  intent_snapshot()
 
   # 4. Pruning: Remove orphans
   # Sync library with the new lockfile, removing any dependencies that are no longer needed
   message("Pruning orphan dependencies...")
-  rv_restore()
+  intent_restore()
 
   invisible(pkgs)
 }

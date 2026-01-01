@@ -12,13 +12,11 @@ init <- function(
   path = ".",
   repos = if (Sys.info()[["sysname"]] == "Linux") {
     c(
-      "CRAN-LINUX" = "https://packagemanager.posit.co/cran/__linux__/manylinux_2_28/latest",
-      "CRAN-OTHERS" = "https://packagemanager.posit.co/cran/latest"
+      "CRAN" = "https://packagemanager.posit.co/cran/__linux__/manylinux_2_28/latest"
     )
   } else {
     c(
-      "CRAN-OTHERS" = "https://packagemanager.posit.co/cran/latest",
-      "CRAN-LINUX" = "https://packagemanager.posit.co/cran/__linux__/manylinux_2_28/latest"
+      "CRAN" = "https://packagemanager.posit.co/cran/latest"
     )
   }
 ) {
@@ -51,6 +49,24 @@ init <- function(
   d$set_dep("pak", type = "Suggests")
   d$set_dep("renv", type = "Suggests")
   d$set_dep("intent", type = "Suggests")
+
+  # Add repositories as custom Config/intent fields
+  if (length(repos) > 0) {
+    repo_names <- names(repos)
+    if (is.null(repo_names) || any(repo_names == "")) {
+      stop(
+        "Repositories must be provided as a named vector (e.g., c(CRAN = 'url'))."
+      )
+    }
+
+    for (i in seq_along(repos)) {
+      d$set(
+        sprintf("Config/intent/repos/%s", repo_names[i]),
+        repos[i]
+      )
+    }
+  }
+
   d$write(desc_path)
 
   # 2. State Init: renv::init(bare = FALSE)
@@ -62,7 +78,9 @@ init <- function(
         project = project_dir,
         bare = TRUE,
         restart = FALSE,
-        settings = list(snapshot.type = "explicit"),
+        settings = list(
+          snapshot.type = "explicit"
+        ),
         repos = repos,
         load = TRUE
       )
@@ -88,30 +106,7 @@ init <- function(
   )
 
   # 3. Bootstrapping: Configure .Rprofile
-  # renv::init already likely added source("renv/activate.R")
-  # We need to ensure repos are set.
-
-  rprofile_path <- file.path(project_dir, ".Rprofile")
-  rprofile_lines <- if (file.exists(rprofile_path)) {
-    readLines(rprofile_path)
-  } else {
-    character()
-  }
-
-  # Check if we need to add repos
-  # Simple check: if "options(repos" is not present
-  if (!any(grepl("options\\(repos", rprofile_lines))) {
-    repos_str <- paste0(
-      "options(repos = ",
-      paste(deparse(repos), collapse = ""),
-      ")"
-    )
-    write(
-      repos_str,
-      rprofile_path,
-      append = TRUE
-    )
-  }
+  # No longer Injecting options(repos) here as it's managed via DESCRIPTION/intent
 
   # 4. Configure .Renviron for PAK
   renviron_path <- file.path(project_dir, ".Renviron")

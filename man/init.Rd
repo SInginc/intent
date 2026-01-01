@@ -7,13 +7,11 @@
 init(
   path = ".",
   repos = if (Sys.info()[["sysname"]] == "Linux") {
-     c(`CRAN-LINUX` =
-    "https://packagemanager.posit.co/cran/__linux__/manylinux_2_28/latest", `CRAN-OTHERS`
-    = "https://packagemanager.posit.co/cran/latest")
- } else {
-     c(`CRAN-OTHERS` =
-    "https://packagemanager.posit.co/cran/latest", `CRAN-LINUX` =
+     c(CRAN =
     "https://packagemanager.posit.co/cran/__linux__/manylinux_2_28/latest")
+ } else {
+
+     c(CRAN = "https://packagemanager.posit.co/cran/latest")
  }
 )
 }

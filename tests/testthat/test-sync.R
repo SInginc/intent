@@ -2,7 +2,7 @@ test_that("intent::sync restores environment from lockfile", {
   # Setup
   tmp_dir <- file.path(
     Sys.getenv("R_USER_CACHE_DIR", unset = tempdir()),
-    paste0("rv_test_sync_", Sys.getpid())
+    paste0("intent_test_sync_", Sys.getpid())
   )
   dir.create(tmp_dir)
   on.exit(unlink(tmp_dir, recursive = TRUE))
@@ -21,7 +21,7 @@ test_that("intent::sync restores environment from lockfile", {
   pkg_to_test <- "dplyr"
   suppressMessages(init(
     path = tmp_dir,
-    repos = "https://packagemanager.posit.co/cran/latest"
+    repos = c(CRAN = "https://packagemanager.posit.co/cran/latest")
   ))
 
   # delete `intent` from dependencies as unavailable on CRAN

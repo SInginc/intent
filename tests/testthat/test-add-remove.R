@@ -2,7 +2,7 @@ test_that("intent::add and intent::remove work as expected", {
   # Setup
   tmp_dir <- file.path(
     Sys.getenv("R_USER_CACHE_DIR", unset = tempdir()),
-    paste0("rv_test_add_", Sys.getpid())
+    paste0("intent_test_add_", Sys.getpid())
   )
   dir.create(tmp_dir)
 
@@ -20,7 +20,7 @@ test_that("intent::add and intent::remove work as expected", {
   pkg_to_test <- "desc"
   suppressMessages(init(
     path = tmp_dir,
-    repos = "https://packagemanager.posit.co/cran/latest"
+    repos = c(CRAN = "https://packagemanager.posit.co/cran/latest")
   ))
 
   lib_path <- callr::r(

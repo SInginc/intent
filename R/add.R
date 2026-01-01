@@ -28,7 +28,7 @@ add <- function(pkgs, dev = FALSE) {
   message("Adding ", paste(pkgs, collapse = ", "), " to ", desc_type)
 
   # 2. Installation: Use renv to install into the project library
-  rv_install(pkgs)
+  intent_install(pkgs)
 
   # Helper to add deps one by one
   # desc::desc_set_dep handles adding or updating dependencies
@@ -38,14 +38,14 @@ add <- function(pkgs, dev = FALSE) {
     # But for now, we assume standard usage.
     # Note: desc_set_dep expects just the package name for the 'package' arg.
     pkg_name <- basename(pkg) # rough heuristic for user/repo -> repo
-    rv_set_project_dep(package = pkg_name, type = desc_type)
+    intent_set_project_dep(package = pkg_name, type = desc_type)
   }
 
   # 3. Locking: renv snapshot
   # Because we set snapshot.type logic in init, this should only snapshot what is in DESCRIPTION.
   # But to be safe and forceful (per spec):
   message("Updating lockfile...")
-  rv_snapshot()
+  intent_snapshot()
 
   invisible(pkgs)
 }
