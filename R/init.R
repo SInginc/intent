@@ -1,6 +1,6 @@
-#' Initialize an rv Project
+#' Initialize an intent Project
 #'
-#' Sets up a directory as an `rv` project by creating a `DESCRIPTION` file (if missing),
+#' Sets up a directory as an `intent` project by creating a `DESCRIPTION` file (if missing),
 #' initializing a bare `renv` environment, setting the snapshot type to "explicit",
 #' and configuring `.Rprofile` and `.Renviron`.
 #'
@@ -50,7 +50,7 @@ init <- function(
 
   d$set_dep("pak", type = "Suggests")
   d$set_dep("renv", type = "Suggests")
-  d$set_dep("rv", type = "Suggests")
+  d$set_dep("intent", type = "Suggests")
   d$write(desc_path)
 
   # 2. State Init: renv::init(bare = FALSE)
@@ -123,15 +123,15 @@ init <- function(
 
   if (!any(grepl("RENV_CONFIG_PAK_ENABLED", renviron_lines))) {
     write(
-      "# rv modification: start",
+      "# intent modification: start",
       file = renviron_path,
       append = TRUE
     )
     write("RENV_CONFIG_PAK_ENABLED=TRUE", file = renviron_path, append = TRUE)
-    write("# rv modification: end", file = renviron_path, append = TRUE)
+    write("# intent modification: end", file = renviron_path, append = TRUE)
   }
 
-  message("rv project initialized successfully in ", project_dir)
+  message("intent project initialized successfully in ", project_dir)
   message("Please restart your R session for changes to take effect.")
   invisible(project_dir)
 }

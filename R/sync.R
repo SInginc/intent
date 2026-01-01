@@ -9,7 +9,7 @@ sync <- function() {
 
   if (!file.exists("DESCRIPTION")) {
     stop(
-      "No DESCRIPTION file found. Run `rv::init()` or `rv::add()` first.",
+      "No DESCRIPTION file found. Run `intent::init()` or `intent::add()` first.",
       call. = FALSE
     )
   }

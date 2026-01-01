@@ -1,4 +1,4 @@
-test_that("rv::add and rv::remove work as expected", {
+test_that("intent::add and intent::remove work as expected", {
   # Setup
   tmp_dir <- file.path(
     Sys.getenv("R_USER_CACHE_DIR", unset = tempdir()),
@@ -25,7 +25,7 @@ test_that("rv::add and rv::remove work as expected", {
 
   lib_path <- callr::r(
     function(old_dir, tmp_dir, pkg_to_test) {
-      if (!requireNamespace("rv", quietly = TRUE)) {
+      if (!requireNamespace("intent", quietly = TRUE)) {
         pkgload::load_all(old_dir)
       }
 
@@ -38,7 +38,7 @@ test_that("rv::add and rv::remove work as expected", {
 
       # Check Library
       # renv library path
-      rv::add(pkg_to_test)
+      intent::add(pkg_to_test)
       renv::paths$library()
     },
     args = list(
@@ -60,7 +60,7 @@ test_that("rv::add and rv::remove work as expected", {
   # Test REMOVE
   lib_path <- callr::r(
     function(old_dir, tmp_dir, pkg_to_test) {
-      if (!requireNamespace("rv", quietly = TRUE)) {
+      if (!requireNamespace("intent", quietly = TRUE)) {
         pkgload::load_all(old_dir)
       }
 
@@ -69,7 +69,7 @@ test_that("rv::add and rv::remove work as expected", {
       Sys.setenv(RENV_CONFIG_SANDBOX_ENABLED = TRUE)
       renv::load(project = tmp_dir, quiet = TRUE)
       options(repos = c(CRAN = "https://packagemanager.posit.co/cran/latest"))
-      rv::remove(pkg_to_test)
+      intent::remove(pkg_to_test)
       renv::paths$library()
     },
     args = list(

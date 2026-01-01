@@ -15,7 +15,10 @@ add <- function(pkgs, dev = FALSE) {
   }
 
   if (!file.exists(file.path(renv::project(), "DESCRIPTION"))) {
-    stop("No DESCRIPTION file found. Run `rv::init()` first.", call. = FALSE)
+    stop(
+      "No DESCRIPTION file found. Run `intent::init()` first.",
+      call. = FALSE
+    )
   }
 
   # 1. Manifest Update: Add to DESCRIPTION

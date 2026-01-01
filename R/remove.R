@@ -14,7 +14,10 @@ remove <- function(pkgs) {
   }
 
   if (!file.exists("DESCRIPTION")) {
-    stop("No DESCRIPTION file found. Run `rv::init()` first.", call. = FALSE)
+    stop(
+      "No DESCRIPTION file found. Run `intent::init()` first.",
+      call. = FALSE
+    )
   }
 
   # 1. Manifest Update: Remove from DESCRIPTION

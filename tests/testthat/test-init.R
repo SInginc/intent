@@ -1,4 +1,4 @@
-test_that("rv::init creates necessary files", {
+test_that("intent::init creates necessary files", {
   # Use a temp directory for the project
   tmp_dir <- file.path(
     Sys.getenv("R_USER_CACHE_DIR", unset = tempdir()),
@@ -31,7 +31,7 @@ test_that("rv::init creates necessary files", {
 
   expect_true(.desc$has_dep("pak"))
   expect_true(.desc$has_dep("renv"))
-  expect_true(.desc$has_dep("rv"))
+  expect_true(.desc$has_dep("intent"))
 
   rprofile <- readLines(file.path(tmp_dir, ".Rprofile"))
   expect_true(any(grepl("options\\(repos", rprofile)))
@@ -41,7 +41,7 @@ test_that("rv::init creates necessary files", {
 
   # Check renv settings
   # verifying renv settings might require loading the project or checking renv/settings.json
-  # But rv::init doesn't write settings.json directly, it calls renv::settings
+  # But intent::init doesn't write settings.json directly, it calls renv::settings
   # which writes to renv/settings.dcf or json.
   expect_true(
     file.exists(file.path(tmp_dir, "renv/settings.json")) ||

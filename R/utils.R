@@ -15,7 +15,7 @@ check_missing_deps <- function() {
     stop(
       "The following required packages are missing: ",
       paste(missing, collapse = ", "),
-      ".\nPlease install them before using `rv`.",
+      ".\nPlease install them before using `intent`.",
       call. = FALSE
     )
   }
