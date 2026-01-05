@@ -1,4 +1,4 @@
 library(testthat)
-library(rv)
+library(intent)
 
-test_check("rv", stop_on_warning = TRUE)
+test_check("intent", stop_on_warning = TRUE)

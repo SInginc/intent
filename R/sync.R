@@ -9,7 +9,7 @@ sync <- function() {
 
   if (!file.exists("DESCRIPTION")) {
     stop(
-      "No DESCRIPTION file found. Run `rv::init()` or `rv::add()` first.",
+      "No DESCRIPTION file found. Run `intent::init()` or `intent::add()` first.",
       call. = FALSE
     )
   }
@@ -19,7 +19,7 @@ sync <- function() {
   # 1. Compare Intent (DESCRIPTION) vs State (Lockfile/Library)
   # We need to ensure that what is in DESCRIPTION is installed and in Lockfile.
 
-  desc_deps <- rv_get_project_deps()
+  desc_deps <- intent_get_project_deps()
   # Filter for relevant types
   target_types <- c("Imports", "Suggests")
   intent_pkgs <- desc_deps$package[desc_deps$type %in% target_types]
@@ -40,16 +40,16 @@ sync <- function() {
       "Installing missing packages from DESCRIPTION: ",
       paste(missing_pkgs, collapse = ", ")
     )
-    rv_install(missing_pkgs)
+    intent_install(missing_pkgs)
 
     message("Updating lockfile...")
-    rv_snapshot()
+    intent_snapshot()
   }
 
   # 2. Sync Library matches Lockfile
   # This handles removing extras and ensuring versions match lockfile
   message("Restoring library from lockfile...")
-  rv_restore()
+  intent_restore()
 
   message("Environment synchronized.")
 }

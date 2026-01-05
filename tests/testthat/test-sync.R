@@ -1,8 +1,8 @@
-test_that("rv::sync restores environment from lockfile", {
+test_that("intent::sync restores environment from lockfile", {
   # Setup
   tmp_dir <- file.path(
     Sys.getenv("R_USER_CACHE_DIR", unset = tempdir()),
-    paste0("rv_test_sync_", Sys.getpid())
+    paste0("intent_test_sync_", Sys.getpid())
   )
   dir.create(tmp_dir)
   on.exit(unlink(tmp_dir, recursive = TRUE))
@@ -21,12 +21,12 @@ test_that("rv::sync restores environment from lockfile", {
   pkg_to_test <- "dplyr"
   suppressMessages(init(
     path = tmp_dir,
-    repos = "https://packagemanager.posit.co/cran/latest"
+    repos = c(CRAN = "https://packagemanager.posit.co/cran/latest")
   ))
 
-  # delete `rv` from dependencies as unavailable on CRAN
+  # delete `intent` from dependencies as unavailable on CRAN
   desc::desc_del_dep(
-    "rv",
+    "intent",
     file = file.path(tmp_dir, "DESCRIPTION")
   )
 
@@ -39,7 +39,7 @@ test_that("rv::sync restores environment from lockfile", {
 
   lib_path <- callr::r(
     function(old_dir, tmp_dir) {
-      if (!requireNamespace("rv", quietly = TRUE)) {
+      if (!requireNamespace("intent", quietly = TRUE)) {
         pkgload::load_all(old_dir)
       }
 
@@ -50,7 +50,7 @@ test_that("rv::sync restores environment from lockfile", {
       renv::load(project = tmp_dir, quiet = TRUE)
       options(repos = c(CRAN = "https://packagemanager.posit.co/cran/latest"))
 
-      rv::sync()
+      intent::sync()
 
       # Check Library
       # renv library path

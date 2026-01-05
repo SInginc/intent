@@ -1,16 +1,16 @@
-# rv: Fast, Unified Project Management for R
+# intent: Fast, Unified Project Management for R
 
 <!-- badges: start -->
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
-[![R-CMD-check](https://github.com/SInginc/rv/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/SInginc/rv/actions/workflows/R-CMD-check.yaml)
-[![Codecov test coverage](https://codecov.io/gh/SInginc/rv/graph/badge.svg)](https://app.codecov.io/gh/SInginc/rv)
+[![R-CMD-check](https://github.com/SInginc/intent/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/SInginc/intent/actions/workflows/R-CMD-check.yaml)
+[![Codecov test coverage](https://codecov.io/gh/SInginc/intent/graph/badge.svg)](https://app.codecov.io/gh/SInginc/intent)
 <!-- badges: end -->
 
-**`rv`** is a productivity-focused R package manager inspired by Python's `uv`. It provides a single interface to manage project dependencies, using the `DESCRIPTION` file as your **intent** (what you want) and `renv.lock` as your **state** (what you have).
+**`intent`** is a productivity-focused R package manager inspired by Python's `uv`. It provides a single interface to manage project dependencies, using the `DESCRIPTION` file as your **intent** (what you want) and `renv.lock` as your **state** (what you have).
 
-## Why use `rv`?
+## Why use `intent`?
 
-In standard R, keeping your `DESCRIPTION` file, your installed packages, and your `renv.lock` file in sync is a manual, three-step process. **`rv`** automates this complexity:
+In standard R, keeping your `DESCRIPTION` file, your installed packages, and your `renv.lock` file in sync is a manual, three-step process. **`intent`** automates this complexity:
 
 * **Manifest-driven:** Uses the standard `DESCRIPTION` file as a `pyproject.toml` equivalent.
 * **Blazing Fast:** Uses `pak` under the hood for multi-threaded installations.
@@ -21,23 +21,23 @@ In standard R, keeping your `DESCRIPTION` file, your installed packages, and you
 
 ## Quick Comparison
 
-### rv vs Standard R Workflow
+### intent vs Standard R Workflow
 
-| Action | Standard R (Manual) | R (**`rv`**) |
+| Action | Standard R (Manual) | R (**`intent`**) |
 | --- | --- | --- |
-| **Initialize** | Create `DESCRIPTION` manually, run `renv::init()`, configure settings | `rv::init()` |
-| **Add Dependency** | Edit `DESCRIPTION`, run `install.packages()`, run `renv::snapshot()` | `rv::add("pkg")` |
-| **Remove Dependency** | Edit `DESCRIPTION`, run `remove.packages()`, run `renv::snapshot()` | `rv::remove("pkg")` |
-| **Sync Environment** | Run `renv::restore()`, manually check consistency | `rv::sync()` |
+| **Initialize** | Create `DESCRIPTION` manually, run `renv::init()`, configure settings | `intent::init()` |
+| **Add Dependency** | Edit `DESCRIPTION`, run `install.packages()`, run `renv::snapshot()` | `intent::add("pkg")` |
+| **Remove Dependency** | Edit `DESCRIPTION`, run `remove.packages()`, run `renv::snapshot()` | `intent::remove("pkg")` |
+| **Sync Environment** | Run `renv::restore()`, manually check consistency | `intent::sync()` |
 
-### rv vs Python uv
+### intent vs Python uv
 
-| Action | Python (`uv`) | R (**`rv`**) |
+| Action | Python (`uv`) | R (**`intent`**) |
 | --- | --- | --- |
-| **Initialize** | `uv init` | `rv::init()` |
-| **Add Dependency** | `uv add pkg` | `rv::add("pkg")` |
-| **Remove Dependency** | `uv remove pkg` | `rv::remove("pkg")` |
-| **Sync Environment** | `uv sync` | `rv::sync()` |
+| **Initialize** | `uv init` | `intent::init()` |
+| **Add Dependency** | `uv add pkg` | `intent::add("pkg")` |
+| **Remove Dependency** | `uv remove pkg` | `intent::remove("pkg")` |
+| **Sync Environment** | `uv sync` | `intent::sync()` |
 
 ---
 
@@ -45,10 +45,10 @@ In standard R, keeping your `DESCRIPTION` file, your installed packages, and you
 
 ```r
 # Install from GitHub (recommended)
-pak::pak("SInginc/rv")
+pak::pak("SInginc/intent")
 
 # Or using remotes
-remotes::install_github("SInginc/rv")
+remotes::install_github("SInginc/intent")
 ```
 
 ---
@@ -57,7 +57,7 @@ remotes::install_github("SInginc/rv")
 
 ```r
 # 1. Initialize a new project and
-rv::init("my_project")
+intent::init("my_project")
 ```
 
 ```bash
@@ -66,16 +66,16 @@ rv::init("my_project")
 
 ```r
 # 2. Add dependencies
-rv::add("dplyr")                    # Add to Imports
-rv::add("ggplot2")                  # Add another
-rv::add("testthat", dev = TRUE)     # Add to Suggests (dev dependency)
+intent::add("dplyr")                    # Add to Imports
+intent::add("ggplot2")                  # Add another
+intent::add("testthat", dev = TRUE)     # Add to Suggests (dev dependency)
 
 # 3. Work on your project...
 # After a git pull or when packages are out of sync:
-rv::sync()
+intent::sync()
 
 # 4. Clean up unused packages
-rv::remove("ggplot2")
+intent::remove("ggplot2")
 ```
 
 ### Workflow Diagram
@@ -86,24 +86,24 @@ flowchart LR
         DESC["DESCRIPTION"]
     end
 
-    subgraph State["State (rv Manages)"]
+    subgraph State["State (intent Manages)"]
         LOCK["renv.lock"]
         LIB["renv/library/"]
     end
 
-    INIT["rv::init()"] --> DESC
+    INIT["intent::init()"] --> DESC
     INIT --> LOCK
     INIT --> LIB
 
-    ADD["rv::add()"] --> DESC
+    ADD["intent::add()"] --> DESC
     ADD --> LIB
     ADD --> LOCK
 
-    REMOVE["rv::remove()"] --> DESC
+    REMOVE["intent::remove()"] --> DESC
     REMOVE --> LIB
     REMOVE --> LOCK
 
-    SYNC["rv::sync()"] --> LOCK
+    SYNC["intent::sync()"] --> LOCK
     SYNC --> LIB
 
     DESC -.->|"single source of truth"| SYNC
@@ -113,16 +113,16 @@ flowchart LR
 
 ## Key Functions
 
-### `rv::init()`
+### `intent::init()`
 
-Initializes a new or existing directory as an `rv` project.
+Initializes a new or existing directory as an `intent` project.
 
 * Creates a `DESCRIPTION` file if it doesn't exist.
 * Initializes a "bare" `renv` environment.
 * Sets `renv` to **explicit mode** (only tracks packages in `DESCRIPTION`).
 * Configures `.Rprofile` to ensure the environment loads on startup.
 
-### `rv::add(pkgs)`
+### `intent::add(pkgs)`
 
 The primary way to grow your project.
 
@@ -130,7 +130,7 @@ The primary way to grow your project.
 * **Fast Install:** Uses `pak` to resolve and install the packages into your local project library.
 * **Locking:** Automatically runs an `renv::snapshot()` to update your `renv.lock`.
 
-### `rv::remove(pkgs)`
+### `intent::remove(pkgs)`
 
 The clean-up tool.
 
@@ -138,7 +138,7 @@ The clean-up tool.
 * Uninstalls the package from the local library.
 * Updates the `renv.lock` file to reflect the change.
 
-### `rv::sync()`
+### `intent::sync()`
 
 Syncs `renv.lock` to match the `DESCRIPTION` file, then restores the local library.
 
@@ -152,8 +152,8 @@ Syncs `renv.lock` to match the `DESCRIPTION` file, then restores the local libra
 
 | Scenario | Error Message | Solution |
 | --- | --- | --- |
-| No `DESCRIPTION` file | `"No DESCRIPTION file found. Run rv::init() first."` | Run `rv::init()` to initialize the project |
-| No packages specified | `"No packages specified."` | Provide package names to `rv::add()` or `rv::remove()` |
+| No `DESCRIPTION` file | `"No DESCRIPTION file found. Run intent::init() first."` | Run `intent::init()` to initialize the project |
+| No packages specified | `"No packages specified."` | Provide package names to `intent::add()` or `intent::remove()` |
 | Missing `renv` or `pak` | `"The following required packages are missing: ..."` | Install `renv` and `pak` first |
 
 ---
@@ -161,15 +161,16 @@ Syncs `renv.lock` to match the `DESCRIPTION` file, then restores the local libra
 ## .gitignore Recommendations
 
 **Commit these files** (shared across team):
-- `DESCRIPTION` — your project's intent (dependencies)
-- `renv.lock` — exact versions for reproducibility
-- `.Rprofile` — ensures `renv` activates on startup
-- `renv/settings.json` — renv configuration
-- `renv/activate.R` — renv bootstrap script
+* `DESCRIPTION` — your project's intent (dependencies)
+* `renv.lock` — exact versions for reproducibility
+* `.Rprofile` — ensures `renv` activates on startup
+* `renv/settings.json` — renv configuration
+* `renv/activate.R` — renv bootstrap script
 
 **Ignore these** (machine-specific):
+
 ```gitignore
-# Local library (regenerated by rv::sync)
+# Local library (regenerated by intent::sync)
 renv/library/
 
 # renv staging/sandbox
@@ -198,35 +199,35 @@ renv::settings$snapshot.type("explicit")
 #    Add to .Renviron: RENV_CONFIG_PAK_ENABLED=TRUE
 
 # 4. Sync to ensure consistency
-rv::sync()
+intent::sync()
 ```
 
-> **Note:** After migration, use `rv::add()` and `rv::remove()` instead of manually editing `DESCRIPTION`.
+> **Note:** After migration, use `intent::add()` and `intent::remove()` instead of manually editing `DESCRIPTION`.
 
 ---
 
-## The `rv` Philosophy: "Intent vs. State"
+## The `intent` Philosophy: "Intent vs. State"
 
-`rv` enforces a strict separation between what you *intend* to use and the *state* of your machine:
+`intent` enforces a strict separation between what you *intend* to use and the *state* of your machine:
 
-1. **Intent (`DESCRIPTION`):** You edit this (or use `rv::add()`). It lists top-level packages and version constraints.
-2. **State (`renv.lock`):** `rv` manages this. It is a machine-readable JSON containing the exact version and hash of every nested dependency.
+1. **Intent (`DESCRIPTION`):** You edit this (or use `intent::add()`). It lists top-level packages and version constraints.
+2. **State (`renv.lock`):** `intent` manages this. It is a machine-readable JSON containing the exact version and hash of every nested dependency.
 
-> **Note:** By using `rv`, you never have to worry about `renv` scanning your entire folder for `library()` calls. If it's not in the `DESCRIPTION`, it's not in the project.
+> **Note:** By using `intent`, you never have to worry about `renv` scanning your entire folder for `library()` calls. If it's not in the `DESCRIPTION`, it's not in the project.
 
 ---
 
 ## Specifications
 
-To build **`rv`** as a robust orchestrator, the specifications must clearly define how each function interacts with the three underlying pillars: the **Manifest** (`DESCRIPTION`), the **Environment** (`renv`), and the **Engine** (`pak`).
+To build **`intent`** as a robust orchestrator, the specifications must clearly define how each function interacts with the three underlying pillars: the **Manifest** (`DESCRIPTION`), the **Environment** (`renv`), and the **Engine** (`pak`).
 
 Below are the technical specifications for the core API.
 
 ---
 
-## 1. `rv::init()`
+## 1. `intent::init()`
 
-**Objective:** Transform a directory into a managed `rv` workspace.
+**Objective:** Transform a directory into a managed `intent` workspace.
 
 **Arguments:**
 
@@ -237,18 +238,18 @@ Below are the technical specifications for the core API.
 
 1. **Infrastructure:** Create `DESCRIPTION` if missing.
 2. **State Init:** Call `renv::init(bare = TRUE)`. This creates the `renv/` folder and `renv.lock` without scanning files.
-3. **Policy Setting:** Set `renv::settings$snapshot.type("explicit")`. This is non-negotiable for the `rv` workflow.
+3. **Policy Setting:** Set `renv::settings$snapshot.type("explicit")`. This is non-negotiable for the `intent` workflow.
 4. **Bootstrapping:** Write `source("renv/activate.R")` to `.Rprofile`.
 5. Append `options(repos = ...)` to `.Rprofile` to ensure the "Intent" for sources is saved.
 6. Set `RENV_CONFIG_PAK_ENABLED=TRUE` in `.Renviron` to enable `pak` as the installation engine.
 
 **Exit State:**
 
-A project ready for `rv::add()`, with a clean local library and an empty `renv.lock`.
+A project ready for `intent::add()`, with a clean local library and an empty `renv.lock`.
 
 ---
 
-## 2. `rv::add()`
+## 2. `intent::add()`
 
 **Objective:** The "uv add" equivalent. Declare, install, and lock a dependency.
 
@@ -272,7 +273,7 @@ A project ready for `rv::add()`, with a clean local library and an empty `renv.l
 
 ---
 
-## 3. `rv::remove()`
+## 3. `intent::remove()`
 
 **Objective:** Reverse the `add` process cleanly.
 
@@ -291,7 +292,7 @@ A project ready for `rv::add()`, with a clean local library and an empty `renv.l
 
 ---
 
-## 4. `rv::sync()`
+## 4. `intent::sync()`
 
 **Objective:** Ensure the local library perfectly matches the `DESCRIPTION` file.
 
