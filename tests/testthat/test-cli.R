@@ -98,3 +98,20 @@ test_that("cli_parse_common handles --prune and --no-prune", {
   parsed_no <- cli_parse_common(c("--no-prune", "pkg"))
   expect_true(parsed_no$flags[["no_prune"]])
 })
+
+test_that("cli_print_help includes all commands and flags", {
+  output <- capture.output(cli_print_help())
+  text <- paste(output, collapse = "\n")
+
+  expect_match(text, "intent init")
+  expect_match(text, "intent add")
+  expect_match(text, "intent remove")
+  expect_match(text, "intent sync")
+  expect_match(text, "intent status")
+  expect_match(text, "--project")
+  expect_match(text, "--dry-run")
+  expect_match(text, "--json")
+  expect_match(text, "--dev")
+  expect_match(text, "--no-prune")
+  expect_match(text, "--repo")
+})
