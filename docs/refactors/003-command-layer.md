@@ -1,6 +1,6 @@
 # Command Layer
 
-Status: `planned`
+Status: `implemented`
 
 ## Problem
 
@@ -88,7 +88,8 @@ separate all core planning logic yet.
 
 ## Result / Follow-Up Notes
 
-Fill this in after implementation.
-
-- Result:
-- Follow-up work:
+- Result: Added `R/commands.R` with internal `cmd_init()`, `cmd_add()`,
+  `cmd_remove()`, and `cmd_sync()` workflow functions. Public R API functions
+  now delegate to the command layer while preserving existing behavior.
+- Follow-up work: Add `status` and dry-run planning so command functions can
+  expose planned operations before mutating project state.
