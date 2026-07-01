@@ -85,13 +85,26 @@ cmd_init <- function(path = ".", repos = NULL) {
   invisible(project_dir)
 }
 
-cmd_add <- function(pkgs, dev = FALSE, project = NULL) {
+cmd_add <- function(pkgs, dev = FALSE, project = NULL, dry_run = FALSE) {
   if (missing(pkgs) || length(pkgs) == 0) {
     stop("No packages specified.", call. = FALSE)
   }
 
   project <- resolve_project(project)
   desc_type <- if (dev) "Suggests" else "Imports"
+
+  if (dry_run) {
+    return(new_intent_plan(
+      project = project,
+      command = "add",
+      packages = pkgs,
+      actions = c(
+        paste0("would_install: ", paste(pkgs, collapse = ", ")),
+        paste0("would_update_manifest: ", desc_type),
+        "would_snapshot"
+      )
+    ))
+  }
 
   message("Adding ", paste(pkgs, collapse = ", "), " to ", desc_type)
 
@@ -108,12 +121,26 @@ cmd_add <- function(pkgs, dev = FALSE, project = NULL) {
   invisible(pkgs)
 }
 
-cmd_remove <- function(pkgs, project = NULL) {
+cmd_remove <- function(pkgs, project = NULL, dry_run = FALSE) {
   if (missing(pkgs) || length(pkgs) == 0) {
     stop("No packages specified.", call. = FALSE)
   }
 
   project <- resolve_project(project)
+
+  if (dry_run) {
+    return(new_intent_plan(
+      project = project,
+      command = "remove",
+      packages = pkgs,
+      actions = c(
+        paste0("would_remove_from_manifest: ", paste(pkgs, collapse = ", ")),
+        paste0("would_remove_from_library: ", paste(pkgs, collapse = ", ")),
+        "would_snapshot",
+        "would_restore"
+      )
+    ))
+  }
 
   message("Removing ", paste(pkgs, collapse = ", "), " from DESCRIPTION")
   for (pkg in pkgs) {
@@ -132,7 +159,7 @@ cmd_remove <- function(pkgs, project = NULL) {
   invisible(pkgs)
 }
 
-cmd_sync <- function(project = NULL) {
+cmd_sync <- function(project = NULL, dry_run = FALSE) {
   project <- resolve_project(project)
 
   desc_path <- file.path(project, "DESCRIPTION")
@@ -178,6 +205,24 @@ cmd_sync <- function(project = NULL) {
 
   missing_pkgs <- missing_pkgs[missing_pkgs != "intent"]
 
+  if (dry_run) {
+    actions <- "would_restore"
+    if (length(missing_pkgs) > 0) {
+      actions <- c(
+        paste0("would_install: ", paste(missing_pkgs, collapse = ", ")),
+        "would_snapshot",
+        actions
+      )
+    }
+
+    return(new_intent_plan(
+      project = project,
+      command = "sync",
+      actions = actions,
+      packages = missing_pkgs
+    ))
+  }
+
   if (length(missing_pkgs) > 0) {
     message(
       "Installing/Updating packages from DESCRIPTION: ",
@@ -193,4 +238,23 @@ cmd_sync <- function(project = NULL) {
   intent_restore(project)
 
   message("Environment synchronized.")
+}
+
+cmd_status <- function(project = NULL) {
+  project <- resolve_project(project)
+
+  manifest_packages <- intent_manifest_packages(project)
+  locked_packages <- intent_locked_packages(project)
+  library_path <- backend_library(project)
+  library_packages <- intent_library_packages(project)
+
+  new_intent_status(
+    project = project,
+    manifest_packages = manifest_packages,
+    locked_packages = locked_packages,
+    missing_from_lockfile = setdiff(manifest_packages, locked_packages),
+    extra_in_lockfile = setdiff(locked_packages, manifest_packages),
+    library_path = library_path,
+    missing_from_library = setdiff(locked_packages, library_packages)
+  )
 }

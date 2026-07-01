@@ -1,6 +1,6 @@
 # Status and Dry Run
 
-Status: `planned`
+Status: `implemented`
 
 ## Problem
 
@@ -110,7 +110,8 @@ Initial actions may be coarse-grained, such as `would_install`,
 
 ## Result / Follow-Up Notes
 
-Fill this in after implementation.
-
-- Result:
-- Follow-up work:
+- Result: Added exported `status()`, structured `intent_status` and
+  `intent_plan` objects, dry-run support for `add()`, `remove()`, and `sync()`,
+  and unit coverage proving dry-run paths do not call backend mutation helpers.
+- Follow-up work: Add CLI output modes, including machine-readable status/plan
+  output, when the CLI refactor begins.
