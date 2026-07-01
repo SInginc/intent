@@ -32,7 +32,7 @@ sync <- function(project = NULL) {
 
   lock_path <- file.path(project, "renv.lock")
   if (file.exists(lock_path)) {
-    lock <- renv::lockfile_read(lock_path)
+    lock <- backend_read_lockfile(project)
     lock_pkgs <- names(lock$Packages)
     missing_pkgs <- setdiff(intent_pkgs, lock_pkgs)
 

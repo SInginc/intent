@@ -21,9 +21,8 @@ remove <- function(pkgs, project = NULL) {
   }
 
   # 2. Cleanup: Remove from library
-  # renv::remove handles uninstalling
   message("Removing packages from library...")
-  renv::remove(pkgs, project = project)
+  backend_remove(project, pkgs)
 
   # 3. Locking: renv snapshot
   # Because we are in explicit mode and removed it from DESCRIPTION,

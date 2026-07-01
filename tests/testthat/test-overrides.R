@@ -53,7 +53,7 @@ test_that("get_intent_overrides extracts from DESCRIPTION", {
 })
 
 test_that("intent_install applies overrides", {
-  # Mocking pak::pkg_install and load_intent_repos
+  # Mocking backend install and repository loading
   installed_pkgs <- NULL
   loaded_repos <- NULL
 
@@ -78,10 +78,9 @@ test_that("intent_install applies overrides", {
       loaded_repos <<- more_repos
     }
   )
-  mockery::stub(intent_install, "pak::pkg_install", function(pkgs, lib, ask) {
+  mockery::stub(intent_install, "backend_install", function(project, pkgs) {
     installed_pkgs <<- pkgs
   })
-  mockery::stub(intent_install, "renv::paths$library", function(...) "lib")
   mockery::stub(intent_install, "file.exists", function(...) TRUE)
 
   intent_install(".", "glue")

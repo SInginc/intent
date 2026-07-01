@@ -55,7 +55,7 @@ test_that("sync honors explicit project before active renv state", {
   )
 
   restored_project <- NULL
-  mockery::stub(sync, "renv::lockfile_read", function(...) {
+  mockery::stub(sync, "backend_read_lockfile", function(...) {
     list(Packages = list(glue = list(Version = "1.6.2")))
   })
   mockery::stub(sync, "intent_restore", function(project) {

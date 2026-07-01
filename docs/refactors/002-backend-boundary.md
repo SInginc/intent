@@ -1,6 +1,6 @@
 # Backend Boundary
 
-Status: `planned`
+Status: `implemented`
 
 ## Problem
 
@@ -107,7 +107,9 @@ Command and helper code should call backend functions instead of direct
 
 ## Result / Follow-Up Notes
 
-Fill this in after implementation.
-
-- Result:
-- Follow-up work:
+- Result: Added an internal backend boundary in `R/backend.R`, moved direct
+  package install, remove, snapshot, restore, lockfile, and library operations
+  behind `backend_*()` functions, and updated command workflows to call the
+  intent-owned boundary.
+- Follow-up work: Introduce a command layer so public R APIs and the future CLI
+  can share workflow orchestration without duplicating command behavior.

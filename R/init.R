@@ -74,42 +74,9 @@ init <- function(
 
   rproject$write(desc_path)
 
-  # 2. State Init: renv::init(bare = TRUE)
-  # We check if the target directory already has an renv project initialized.
-  # If it doesn't, we initialize it.
+  # 2. State Init: initialize backend state when needed.
   if (!dir.exists(file.path(project_dir, "renv"))) {
-    renv::init(
-      project = project_dir,
-      bare = TRUE,
-      restart = FALSE,
-      settings = list(
-        snapshot.type = "explicit"
-      ),
-      repos = repos,
-      load = FALSE
-    )
-    utils::install.packages(
-      pkgs = c("pak", "renv"),
-      lib = renv::paths$library(project = project_dir),
-      repos = repos
-    )
-    renv::snapshot(
-      project = project_dir,
-      library = renv::paths$library(project = project_dir),
-      lockfile = file.path(project_dir, "renv.lock"),
-      packages = c("pak", "renv"),
-      exclude = c("intent"),
-      repos = repos,
-      prompt = FALSE
-    )
-    # HACK
-    renv_lock <- renv::lockfile_read(file.path(project_dir, "renv.lock"))
-    renv_lock$R$Repositories <- repos
-    renv::lockfile_write(
-      renv_lock,
-      file = file.path(project_dir, "renv.lock"),
-      project = project_dir
-    )
+    backend_init(project_dir, repos)
   } else {
     sync(project = project_dir)
   }

@@ -111,32 +111,19 @@ intent_install <- function(project, pkgs) {
     character(1)
   )
 
-  lib_loc <- renv::paths$library(project = project)
-  message("Installing packages into ", lib_loc, "...")
-  pak::pkg_install(resolved_pkgs, lib = lib_loc, ask = FALSE)
+  backend_install(project, resolved_pkgs)
 }
 
 #' @keywords internal
 intent_snapshot <- function(project) {
   load_intent_repos(project)
-  renv::snapshot(
-    project = project,
-    library = renv::paths$library(project = project),
-    lockfile = file.path(project, "renv.lock"),
-    dev = TRUE,
-    prompt = FALSE
-  )
+  backend_snapshot(project)
 }
 
 #' @keywords internal
 intent_restore <- function(project) {
   load_intent_repos(project)
-  renv::restore(
-    project = project,
-    lockfile = file.path(project, "renv.lock"),
-    clean = TRUE,
-    prompt = FALSE
-  )
+  backend_restore(project)
 }
 
 #' @keywords internal
