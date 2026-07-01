@@ -10,7 +10,7 @@ test_that("intent::init creates necessary files", {
     unlink(tmp_dir, recursive = TRUE)
   }
 
-  # Mocking utils::check_missing_deps or ensuring environment has them
+  # Mocking utils::check_renv_loaded or ensuring environment has them
   # For this test, we assume the environment is set up (we are running in code editor agent)
 
   # Run init

@@ -4,7 +4,10 @@
 \alias{sync}
 \title{Sync the Environment}
 \usage{
-sync()
+sync(project = NULL)
+}
+\arguments{
+\item{project}{Path to the project directory. Defaults to the current intent project.}
 }
 \description{
 Ensures the \code{DESCRIPTION} file matches the \code{renv.lock} file exactly.

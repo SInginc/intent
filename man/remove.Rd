@@ -4,10 +4,12 @@
 \alias{remove}
 \title{Remove a Dependency}
 \usage{
-remove(pkgs)
+remove(pkgs, project = NULL)
 }
 \arguments{
 \item{pkgs}{Character vector. Names of packages to remove.}
+
+\item{project}{Path to the project directory. Defaults to the current intent project.}
 }
 \description{
 Removes a package from the \code{DESCRIPTION} file, uninstalls it from the library,

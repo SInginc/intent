@@ -114,4 +114,3 @@ Possible CLI implementation paths:
 - A small shell shim that calls R, if packaging constraints require it.
 
 The CLI must call the same command layer used by the R API.
-

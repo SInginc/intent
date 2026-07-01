@@ -4,7 +4,12 @@
 \alias{load_intent_repos}
 \title{Load Repositories from DESCRIPTION}
 \usage{
-load_intent_repos()
+load_intent_repos(project, more_repos = NULL)
+}
+\arguments{
+\item{project}{Path to the project directory.}
+
+\item{more_repos}{Optional character vector of additional repositories.}
 }
 \description{
 Reads the repositories defined in \verb{Config/intent/repos/} and sets them

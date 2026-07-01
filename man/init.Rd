@@ -4,10 +4,7 @@
 \alias{init}
 \title{Initialize an intent Project}
 \usage{
-init(
-  path = ".",
-  repos = c(CRAN = "https://packagemanager.posit.co/cran/latest")
-)
+init(path = ".", repos = NULL)
 }
 \arguments{
 \item{path}{Character string. Path to the new project directory. Defaults to current working directory.}

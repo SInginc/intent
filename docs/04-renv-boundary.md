@@ -79,4 +79,3 @@ If resolution fails, return a clear error:
 ```text
 No intent project found. Run `intent init` or pass `project =`.
 ```
-

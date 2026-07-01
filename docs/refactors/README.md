@@ -35,4 +35,3 @@ plan, and updated after implementation with the actual result.
 ## Plans
 
 - [001 Explicit Project Resolution](001-explicit-project-resolution.md)
-

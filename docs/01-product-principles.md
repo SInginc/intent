@@ -93,4 +93,3 @@ The first stable API should be small:
 - `status`
 
 Each command should have precise input, output, side effects, and failure modes.
-

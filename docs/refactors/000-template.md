@@ -46,4 +46,3 @@ Fill this in after implementation.
 
 - Result:
 - Follow-up work:
-

@@ -1,6 +1,6 @@
 # Explicit Project Resolution
 
-Status: `planned`
+Status: `implemented`
 
 ## Problem
 
@@ -103,8 +103,8 @@ source of truth.
 
 ## Result / Follow-Up Notes
 
-Fill this in after implementation.
-
-- Result:
-- Follow-up work:
-
+- Result: Added explicit project resolution, passed resolved project paths
+  through public command workflows and internal helpers, and removed command
+  entry checks that required active `renv` session state.
+- Follow-up work: Extract backend adapter functions in a separate refactor so
+  remaining `renv` operations are isolated behind a narrow backend interface.

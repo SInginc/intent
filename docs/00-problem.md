@@ -80,4 +80,3 @@ intent::status()
 
 The CLI and R API should share one internal command layer. They should not grow
 separate behavior.
-

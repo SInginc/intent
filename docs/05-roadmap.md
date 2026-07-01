@@ -84,4 +84,3 @@ The next implementation pass should answer:
 - What is the exact project discovery algorithm?
 - What data structure represents drift?
 - Which tests are unit tests and which are integration tests?
-
