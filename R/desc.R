@@ -152,8 +152,8 @@ get_intent_overrides <- function(
 #' @return A list with `package`, `version`, `ref` (pak reference), and `repo` (optional).
 #' @keywords internal
 parse_override <- function(override_str) {
-  parts <- strsplit(override_str, "@")[[1]]
-  if (length(parts) < 3) {
+  parts <- strsplit(override_str, "@", fixed = TRUE)[[1]]
+  if (length(parts) != 3 || any(parts == "")) {
     stop(sprintf(
       "Invalid override format: %s. Expected package@version@source",
       override_str
@@ -179,8 +179,10 @@ parse_override <- function(override_str) {
   } else if (src %in% c("github", "bioc", "local", "url")) {
     ref <- sprintf("%s::%s@%s", src, pkg, ver)
   } else {
-    # Unknown source, assume it's a pak type
-    ref <- sprintf("%s::%s@%s", src, pkg, ver)
+    stop(sprintf(
+      "Invalid override source: %s. Supported sources are cran, standard, github, bioc, local, url, or an http(s) repository URL",
+      src
+    ))
   }
 
   list(package = pkg_name, version = ver, ref = ref, repo = repo)

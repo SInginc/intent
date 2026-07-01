@@ -1,6 +1,6 @@
 # Dependency Override Validation
 
-Status: `planned`
+Status: `implemented`
 
 ## Problem
 
@@ -92,7 +92,9 @@ Behavior:
 
 ## Result / Follow-Up Notes
 
-Fill this in after implementation.
-
-- Result:
-- Follow-up work:
+- Result: Tightened override parsing to require exactly three non-empty fields
+  and reject unknown sources. Added tests for supported CRAN, repository URL,
+  GitHub, Bioconductor, local, URL pak refs, malformed strings, and source
+  typos.
+- Follow-up work: Document override configuration in user-facing docs once the
+  CLI and status output settle.

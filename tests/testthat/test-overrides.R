@@ -22,9 +22,38 @@ test_that("parse_override works for different formats", {
   expect_equal(p3$ref, "github::tidyverse/glue@1.6.2")
   expect_null(p3$repo)
 
-  # Unknown source treated as pak type
   p4 <- parse_override("my/pkg@1.0.0@local")
   expect_equal(p4$ref, "local::my/pkg@1.0.0")
+
+  # Bioconductor
+  p5 <- parse_override("BiocGenerics@0.46.0@bioc")
+  expect_equal(p5$ref, "bioc::BiocGenerics@0.46.0")
+
+  # URL pak ref
+  p6 <- parse_override("pkg.tar.gz@1.0.0@url")
+  expect_equal(p6$ref, "url::pkg.tar.gz@1.0.0")
+})
+
+test_that("parse_override rejects invalid formats", {
+  expect_error(
+    parse_override("glue@1.6.2"),
+    "Invalid override format"
+  )
+  expect_error(
+    parse_override("glue@@cran"),
+    "Invalid override format"
+  )
+  expect_error(
+    parse_override("glue@1.6.2@cran@extra"),
+    "Invalid override format"
+  )
+})
+
+test_that("parse_override rejects unknown sources", {
+  expect_error(
+    parse_override("glue@1.6.2@crna"),
+    "Invalid override source"
+  )
 })
 
 test_that("get_intent_overrides extracts from DESCRIPTION", {
