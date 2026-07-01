@@ -52,7 +52,13 @@ cmd_init <- function(path = ".", repos = NULL) {
   } else if (has_repos && (is.null(repos) || length(repos) == 0)) {
     repos <- get_repos(desc_path)
   } else if (!has_repos && (is.null(repos) || length(repos) == 0)) {
-    stop("No repositories provided.")
+    repos <- c(CRAN = "https://packagemanager.posit.co/cran/latest")
+    for (i in seq_along(repos)) {
+      rproject$set(
+        sprintf("Config/intent/repos/%s", names(repos)[[i]]),
+        repos[[i]]
+      )
+    }
   }
 
   rproject$write(desc_path)
@@ -111,7 +117,7 @@ cmd_add <- function(pkgs, dev = FALSE, project = NULL, dry_run = FALSE) {
   intent_install(project, pkgs)
 
   for (pkg in pkgs) {
-    pkg_name <- basename(pkg)
+    pkg_name <- extract_pkg_name(pkg)
     intent_set_project_dep(project, package = pkg_name, type = desc_type)
   }
 
@@ -159,7 +165,7 @@ cmd_remove <- function(pkgs, project = NULL, dry_run = FALSE) {
   invisible(pkgs)
 }
 
-cmd_sync <- function(project = NULL, dry_run = FALSE) {
+cmd_sync <- function(project = NULL, dry_run = FALSE, prune = TRUE) {
   project <- resolve_project(project)
 
   desc_path <- file.path(project, "DESCRIPTION")
@@ -199,8 +205,11 @@ cmd_sync <- function(project = NULL, dry_run = FALSE) {
       }
     }
     missing_pkgs <- unique(missing_pkgs)
+    extra_pkgs <- setdiff(lock_pkgs, intent_pkgs)
+    extra_pkgs <- extra_pkgs[!extra_pkgs %in% c("intent", "pak", "renv")]
   } else {
     missing_pkgs <- intent_pkgs
+    extra_pkgs <- character()
   }
 
   missing_pkgs <- missing_pkgs[missing_pkgs != "intent"]
@@ -214,13 +223,30 @@ cmd_sync <- function(project = NULL, dry_run = FALSE) {
         actions
       )
     }
+    if (prune && length(extra_pkgs) > 0) {
+      actions <- c(
+        paste0("would_prune: ", paste(extra_pkgs, collapse = ", ")),
+        actions
+      )
+    }
 
     return(new_intent_plan(
       project = project,
       command = "sync",
       actions = actions,
-      packages = missing_pkgs
+      packages = if (prune) union(missing_pkgs, extra_pkgs) else missing_pkgs
     ))
+  }
+
+  if (prune && length(extra_pkgs) > 0) {
+    message(
+      "Removing packages no longer in DESCRIPTION: ",
+      paste(extra_pkgs, collapse = ", ")
+    )
+    backend_remove(project, extra_pkgs)
+
+    message("Updating lockfile after removal...")
+    intent_snapshot(project)
   }
 
   if (length(missing_pkgs) > 0) {

@@ -111,6 +111,16 @@ intent_locked_packages <- function(project) {
   sort(names(lock$Packages %||% list()))
 }
 
+#' @export
+as.character.intent_status <- function(x, ...) {
+  jsonlite::toJSON(unclass(x), auto_unbox = TRUE, pretty = FALSE)
+}
+
+#' @export
+as.character.intent_plan <- function(x, ...) {
+  jsonlite::toJSON(unclass(x), auto_unbox = TRUE, pretty = FALSE)
+}
+
 intent_library_packages <- function(project) {
   library_path <- backend_library(project)
   if (!dir.exists(library_path)) {

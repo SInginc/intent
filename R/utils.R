@@ -3,6 +3,21 @@
   if (is.null(x)) y else x
 }
 
+#' Extract bare package name from a package reference
+#'
+#' Strips `user/repo` path prefixes and `@version` suffixes to return the
+#' bare package name.
+#'
+#' @param pkg Character string. A package reference (e.g., `"dplyr"`,
+#'   `"user/repo"`, `"dplyr@1.0.0"`, or `"user/repo@0.1.0"`).
+#' @return The bare package name.
+#' @keywords internal
+extract_pkg_name <- function(pkg) {
+  pkg_name <- basename(pkg)
+  pkg_name <- gsub("@.*$", "", pkg_name)
+  pkg_name
+}
+
 #' @keywords internal
 normalize_project_path <- function(project) {
   normalizePath(path.expand(project), winslash = "/", mustWork = FALSE)

@@ -146,3 +146,44 @@ test_that("sync dry-run returns planned work without backend mutation", {
   expect_equal(plan$packages, "glue")
   expect_true("would_restore" %in% plan$actions)
 })
+
+test_that("as.character.intent_status returns valid JSON", {
+  obj <- new_intent_status(
+    project = "/path/to/project",
+    manifest_packages = c("dplyr", "glue"),
+    locked_packages = c("dplyr", "glue", "R6"),
+    missing_from_lockfile = character(),
+    extra_in_lockfile = "R6",
+    library_path = "/path/to/library",
+    missing_from_library = "R6"
+  )
+
+  json_str <- as.character(obj)
+  parsed <- jsonlite::fromJSON(json_str)
+
+  expect_equal(parsed$project, "/path/to/project")
+  expect_equal(parsed$manifest_packages, c("dplyr", "glue"))
+  expect_length(parsed$missing_from_lockfile, 0)
+  expect_equal(parsed$extra_in_lockfile, "R6")
+})
+
+test_that("as.character.intent_plan returns valid JSON", {
+  obj <- new_intent_plan(
+    project = "/path/to/project",
+    command = "add",
+    actions = c(
+      "would_install: dplyr",
+      "would_update_manifest: Imports",
+      "would_snapshot"
+    ),
+    packages = "dplyr"
+  )
+
+  json_str <- as.character(obj)
+  parsed <- jsonlite::fromJSON(json_str)
+
+  expect_equal(parsed$project, "/path/to/project")
+  expect_equal(parsed$command, "add")
+  expect_equal(parsed$packages, "dplyr")
+  expect_length(parsed$actions, 3)
+})

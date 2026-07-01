@@ -5,7 +5,10 @@
 #' and configuring `.Rprofile` and `.Renviron`.
 #'
 #' @param path Character string. Path to the new project directory. Defaults to current working directory.
-#' @param repos Character vector. Repositories to use. Defaults to `getOption("repos")`.
+#' @param repos Character vector. Named repositories to use. Defaults to
+#'   [Posit Package Manager](https://packagemanager.posit.co/cran/latest)
+#'   when neither this argument nor an existing DESCRIPTION file provides
+#'   repository configuration.
 #'
 #' @export
 init <- function(

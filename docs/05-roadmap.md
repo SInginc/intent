@@ -81,6 +81,15 @@ The next implementation pass should answer:
 
 - Should `init()` have a default repository, or should it require explicit
   repository configuration?
+  → **Resolved (July 2026):** `init()` defaults to Posit Package Manager
+  (`https://packagemanager.posit.co/cran/latest`). Users can override with the
+  `repos` argument. See refactor 009.
 - What is the exact project discovery algorithm?
+  → **Resolved:** Implemented in `resolve_project()` in `R/utils.R`.
 - What data structure represents drift?
+  → **Resolved:** `intent_status` S3 object. See refactor 004.
 - Which tests are unit tests and which are integration tests?
+  → **Resolved:** Tests that install packages (`init`, `add/remove`, `sync`)
+  are integration tests. Tests using stubs and fixtures (`desc`, `cli`,
+  `status-dry-run`, `project-resolution`, `overrides`, `utils-repos`) are
+  unit tests.

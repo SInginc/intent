@@ -41,3 +41,8 @@ plan, and updated after implementation with the actual result.
 - [005 CLI Entry Point](005-cli-entry-point.md)
 - [006 Dependency Override Validation](006-dependency-override-validation.md)
 - [007 CI Quality Gates](007-ci-quality-gates.md)
+- [008 Sync Prune Behavior](008-sync-prune-behavior.md)
+- [009 Init Default Repository](009-init-default-repository.md)
+- [010 JSON Machine-Readable Output](010-json-machine-readable-output.md)
+- [011 Override User Documentation](011-override-user-documentation.md)
+- [012 Smaller Improvements](012-smaller-improvements.md)

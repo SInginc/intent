@@ -15,12 +15,12 @@ Depends:
 Imports:
     callr,
     desc,
+    jsonlite,
     pak,
     renv
 Suggests:
     covr (>= 3.6.5),
     devtools (>= 2.4.6),
-    jsonlite (>= 2.0.0),
     languageserver (>= 0.3.16),
     mockery (>= 0.4.5),
     pkgload (>= 1.4.1),

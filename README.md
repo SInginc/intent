@@ -51,6 +51,38 @@ pak::pak("SInginc/intent")
 remotes::install_github("SInginc/intent")
 ```
 
+### CLI Setup
+
+To use `intent` from the terminal, add the package's `exec` directory to your
+`PATH`:
+
+**Linux / macOS:**
+
+```bash
+# Add to ~/.bashrc, ~/.zshrc, or equivalent
+export PATH="$PATH:$(Rscript -e 'cat(system.file("exec", package="intent"))')"
+```
+
+Alternatively, create a symlink to a directory already on your `PATH`:
+
+```bash
+ln -s $(Rscript -e 'cat(system.file("exec", package="intent"))')/intent \
+  /usr/local/bin/intent
+```
+
+**Windows (PowerShell):**
+
+```powershell
+$intentDir = Rscript -e 'cat(system.file("exec", package="intent"))'
+[Environment]::SetEnvironmentVariable("PATH", "$env:PATH;$intentDir", "User")
+```
+
+After setup, verify with:
+
+```bash
+intent --help
+```
+
 ---
 
 ## Usage Example
@@ -145,6 +177,53 @@ Syncs `renv.lock` to match the `DESCRIPTION` file, then restores the local libra
 * Updates the lockfile to reflect any changes in `DESCRIPTION`.
 * Uses `pak` to speed up the installation process if packages are missing.
 * Ideal for use after editing `DESCRIPTION` or after `git pull`.
+
+---
+
+## Dependency Overrides
+
+When you need a specific version of a package from a non-standard source, or
+when the default CRAN version does not work for your project, use
+**dependency overrides**. These are written as `Config/intent/` fields in your
+`DESCRIPTION` file.
+
+### Format
+
+```dcf
+Config/intent/Imports/<pkg>: <package-spec>@<version>@<source>
+Config/intent/Suggests/<pkg>: <package-spec>@<version>@<source>
+```
+
+Each override must have exactly three non-empty fields separated by `@`.
+
+### Supported Sources
+
+| Source | Package Spec | Example | Description |
+|--------|-------------|---------|-------------|
+| `cran` | Bare name | `dplyr@1.1.4@cran` | Install a specific version from CRAN. |
+| `standard` | Bare name | `dplyr@1.1.4@standard` | Same as `cran`. |
+| `github` | `user/repo` | `tidyverse/dplyr@1.1.4@github` | Install a specific version from GitHub. |
+| `bioc` | Bare name | `Biobase@3.18@bioc` | Install a specific version from Bioconductor. |
+| `local` | Bare name | `mypkg@0.1.0@local` | Install from a local source package. |
+| `url` | Bare name | `mypkg@0.1.0@url` | Install from a URL. |
+| `https://...` | Bare name | `dplyr@1.1.4@https://example.com/cran` | Install from a custom CRAN-like repository. |
+
+### Example
+
+```dcf
+Package: myproject
+Imports:
+    dplyr
+Config/intent/Imports/dplyr: dplyr@1.1.4@cran
+Config/intent/Imports/mypkg: myorg/mypkg@0.1.0@github
+```
+
+### Common Errors
+
+| Error | Cause | Fix |
+|-------|-------|-----|
+| `Invalid override format: ... Expected package@version@source` | Missing or extra `@` separators, or an empty field. | Ensure exactly three non-empty parts separated by `@`. |
+| `Invalid override source: ... Supported sources are cran, standard, github, bioc, local, url, or an http(s) repository URL` | Unknown source type. | Use one of the supported source values from the table above. |
 
 ---
 

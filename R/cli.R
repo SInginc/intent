@@ -71,7 +71,16 @@ cli_sync <- function(args) {
     stop("`intent sync` does not accept package arguments.", call. = FALSE)
   }
 
-  cmd_sync(project = parsed$project, dry_run = parsed$dry_run)
+  prune <- !identical(parsed$flags[["no_prune"]], TRUE)
+  result <- cmd_sync(
+    project = parsed$project,
+    dry_run = parsed$dry_run,
+    prune = prune
+  )
+  if (parsed$json && parsed$dry_run) {
+    cat(as.character(result), "\n", sep = "")
+  }
+  invisible(result)
 }
 
 cli_status <- function(args) {
@@ -80,12 +89,17 @@ cli_status <- function(args) {
     stop("`intent status` does not accept package arguments.", call. = FALSE)
   }
 
-  cmd_status(project = parsed$project)
+  result <- cmd_status(project = parsed$project)
+  if (parsed$json) {
+    cat(as.character(result), "\n", sep = "")
+  }
+  invisible(result)
 }
 
 cli_parse_common <- function(args) {
   project <- NULL
   dry_run <- FALSE
+  json <- FALSE
   flags <- list(dev = FALSE)
   rest <- character()
   i <- 1
@@ -101,8 +115,17 @@ cli_parse_common <- function(args) {
     } else if (identical(arg, "--dry-run")) {
       dry_run <- TRUE
       i <- i + 1
+    } else if (identical(arg, "--json")) {
+      json <- TRUE
+      i <- i + 1
     } else if (identical(arg, "--dev")) {
       flags$dev <- TRUE
+      i <- i + 1
+    } else if (identical(arg, "--prune")) {
+      flags$no_prune <- FALSE
+      i <- i + 1
+    } else if (identical(arg, "--no-prune")) {
+      flags$no_prune <- TRUE
       i <- i + 1
     } else if (startsWith(arg, "--")) {
       stop("Unknown option: ", arg, call. = FALSE)
@@ -116,6 +139,7 @@ cli_parse_common <- function(args) {
     args = rest,
     project = project,
     dry_run = dry_run,
+    json = json,
     flags = flags
   )
 }
@@ -166,8 +190,8 @@ cli_print_help <- function() {
       "  intent init [path] [--repo NAME=URL]",
       "  intent add [--project path] [--dev] [--dry-run] <package>...",
       "  intent remove [--project path] [--dry-run] <package>...",
-      "  intent sync [--project path] [--dry-run]",
-      "  intent status [--project path]",
+      "  intent sync [--project path] [--dry-run] [--json] [--no-prune]",
+      "  intent status [--project path] [--json]",
       sep = "\n"
     ),
     "\n"

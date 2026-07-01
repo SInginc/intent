@@ -22,14 +22,15 @@ test_that("cli status parser calls command layer", {
 
 test_that("cli dispatches sync dry-run", {
   called <- NULL
-  mockery::stub(cli_sync, "cmd_sync", function(project, dry_run) {
-    called <<- list(project = project, dry_run = dry_run)
+  mockery::stub(cli_sync, "cmd_sync", function(project, dry_run, prune) {
+    called <<- list(project = project, dry_run = dry_run, prune = prune)
   })
 
   cli_sync(c("--project", "proj", "--dry-run"))
 
   expect_equal(called$project, "proj")
   expect_true(called$dry_run)
+  expect_true(called$prune)
 })
 
 test_that("cli dispatches add with dev and dry-run flags", {
@@ -81,4 +82,19 @@ test_that("cli reports invalid input", {
   expect_error(cli_main("add"), "No packages specified")
   expect_error(cli_main(c("init", "--repo", "broken")), "NAME=URL")
   expect_error(cli_main(c("sync", "glue")), "does not accept package")
+})
+
+test_that("cli_parse_common handles --json flag", {
+  parsed <- cli_parse_common(c("--json", "--dry-run", "pkg"))
+  expect_true(parsed$json)
+  expect_true(parsed$dry_run)
+  expect_equal(parsed$args, "pkg")
+})
+
+test_that("cli_parse_common handles --prune and --no-prune", {
+  parsed_prune <- cli_parse_common(c("--prune", "pkg"))
+  expect_false(isTRUE(parsed_prune$flags[["no_prune"]]))
+
+  parsed_no <- cli_parse_common(c("--no-prune", "pkg"))
+  expect_true(parsed_no$flags[["no_prune"]])
 })
