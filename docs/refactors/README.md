@@ -40,3 +40,4 @@ plan, and updated after implementation with the actual result.
 - [004 Status and Dry Run](004-status-and-dry-run.md)
 - [005 CLI Entry Point](005-cli-entry-point.md)
 - [006 Dependency Override Validation](006-dependency-override-validation.md)
+- [007 CI Quality Gates](007-ci-quality-gates.md)
