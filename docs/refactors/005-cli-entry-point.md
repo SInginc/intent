@@ -1,6 +1,6 @@
 # CLI Entry Point
 
-Status: `planned`
+Status: `implemented`
 
 ## Problem
 
@@ -91,7 +91,9 @@ Supported flags:
 
 ## Result / Follow-Up Notes
 
-Fill this in after implementation.
-
-- Result:
-- Follow-up work:
+- Result: Added a base-R CLI dispatcher, package-owned `exec/intent` script,
+  and unit tests for command dispatch and argument parsing. The CLI calls the
+  same `cmd_*` command layer used by the R API.
+- Follow-up work: Add machine-readable output for status and dry-run plans, then
+  decide how to install or expose a global `intent` command outside the package
+  library.
