@@ -38,3 +38,4 @@ plan, and updated after implementation with the actual result.
 - [002 Backend Boundary](002-backend-boundary.md)
 - [003 Command Layer](003-command-layer.md)
 - [004 Status and Dry Run](004-status-and-dry-run.md)
+- [005 CLI Entry Point](005-cli-entry-point.md)
