@@ -34,6 +34,10 @@ automatically. Manual analysis is needed.
 
 Estimated line coverage: ~70% unit + ~20% integration = **~90% combined**.
 
+**Measured (covr): 88.52% package coverage** across 11 source files.
+(Run via `Rscript --no-init-file tools/run_coverage.R` to bypass renv
+isolation. See that file for instructions.)
+
 ### Functions Not Directly Tested
 
 | Function | Reason | Priority |
@@ -132,8 +136,9 @@ roadmap Phase 2 criterion.
 
 Fill this in after implementation.
 
-- Result: Analyzed all 56 functions across 11 source files. Filled the three
-  high-priority gaps: added unit tests for `intent_sync_project()`,
+- Result: Analyzed all 56 functions across 11 source files. Measured 88.52%
+  coverage via covr (run in clean session via `tools/run_coverage.R`). Filled
+  the three high-priority gaps: added unit tests for `intent_sync_project()`,
   `intent_get_project_deps()`, and `cli_print_help()`. Test suite now has
   147 tests (0 failures). Documented the split between unit tests (fast, no
   network) and integration tests (real `renv`/`pak` operations).
