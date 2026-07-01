@@ -3,87 +3,162 @@
   if (is.null(x)) y else x
 }
 
-#' Check for Missing Dependencies
+#' Extract bare package name from a package reference
 #'
-#' Checks if `renv` are installed. If not, stops with an informative message.
+#' Strips `user/repo` path prefixes and `@version` suffixes to return the
+#' bare package name.
+#'
+#' @param pkg Character string. A package reference (e.g., `"dplyr"`,
+#'   `"user/repo"`, `"dplyr@1.0.0"`, or `"user/repo@0.1.0"`).
+#' @return The bare package name.
 #' @keywords internal
-check_missing_deps <- function() {
-  missing <- c()
-  if (!requireNamespace("renv", quietly = TRUE)) {
-    missing <- c(missing, "renv")
+extract_pkg_name <- function(pkg) {
+  pkg_name <- basename(pkg)
+  pkg_name <- gsub("@.*$", "", pkg_name)
+  pkg_name
+}
+
+#' @keywords internal
+normalize_project_path <- function(project) {
+  normalizePath(path.expand(project), winslash = "/", mustWork = FALSE)
+}
+
+#' @keywords internal
+find_project_from <- function(path) {
+  current <- normalize_project_path(path)
+  repeat {
+    if (file.exists(file.path(current, "DESCRIPTION"))) {
+      return(current)
+    }
+
+    parent <- dirname(current)
+    if (identical(parent, current)) {
+      return(NULL)
+    }
+    current <- parent
   }
-  if (!requireNamespace("pak", quietly = TRUE)) {
-    missing <- c(missing, "pak")
+}
+
+#' @keywords internal
+resolve_project <- function(project = NULL) {
+  if (!is.null(project)) {
+    project <- normalize_project_path(project)
+    if (!dir.exists(project)) {
+      stop("Project path does not exist: ", project, call. = FALSE)
+    }
+    if (!file.exists(file.path(project, "DESCRIPTION"))) {
+      stop(
+        "No DESCRIPTION file found in project: ",
+        project,
+        ". Run `intent::init()` first.",
+        call. = FALSE
+      )
+    }
+    return(project)
   }
 
-  if (length(missing) > 0) {
-    stop(
-      "The following required packages are missing: ",
-      paste(missing, collapse = ", "),
-      ".\nPlease install them before using `intent`.",
-      call. = FALSE
-    )
+  project <- find_project_from(getwd())
+  if (!is.null(project)) {
+    return(project)
   }
+
+  stop(
+    "No intent project found. Run `intent::init()` or pass `project =`.",
+    call. = FALSE
+  )
 }
 
 #' Load Repositories from DESCRIPTION
 #'
-#' Reads the repositories defined in `Config/intent/repos/` and sets them
-#' in the global `options(repos)`.
+#' Reads the repositories defined in `Config/intent/repos/` and returns
+#' them as a named character vector.
+#' @param project Path to the project directory.
+#' @param more_repos Optional character vector of additional repositories.
+#' @return A named character vector of repositories.
 #' @keywords internal
-load_intent_repos <- function() {
-  # Find DESCRIPTION. This might be tricky if not in project root,
-  # but intent usually operates on the current project.
-  path_to_desc <- file.path(renv::project(), "DESCRIPTION")
+load_intent_repos <- function(project, more_repos = NULL) {
+  path_to_desc <- file.path(project, "DESCRIPTION")
+  repos <- character()
   if (file.exists(path_to_desc)) {
     repos <- get_repos(path_to_desc)
-    options(repos = repos)
   }
+
+  if (length(more_repos) > 0) {
+    # Combine with existing repos, prioritizing more_repos
+    repos <- c(more_repos, repos)
+  }
+
+  repos
 }
 
 #' @keywords internal
-intent_install <- function(pkgs) {
-  load_intent_repos()
-  lib_loc <- renv::paths$library()
-  message("Installing packages into ", lib_loc, "...")
-  pak::pkg_install(pkgs, lib = lib_loc, ask = FALSE)
+intent_install <- function(project, pkgs) {
+  path_to_desc <- file.path(project, "DESCRIPTION")
+  overrides_info <- list(overrides = character(), extra_repos = character())
+  if (file.exists(path_to_desc)) {
+    overrides_info <- get_intent_overrides(path_to_desc)
+  }
+
+  repos <- load_intent_repos(project, more_repos = overrides_info$extra_repos)
+
+  # Apply overrides to pkgs
+  resolved_pkgs <- vapply(
+    pkgs,
+    function(pkg) {
+      if (pkg %in% names(overrides_info$overrides)) {
+        overrides_info$overrides[[pkg]]$ref
+      } else {
+        pkg
+      }
+    },
+    character(1)
+  )
+
+  backend_install(project, resolved_pkgs, repos)
 }
 
 #' @keywords internal
-intent_snapshot <- function() {
-  load_intent_repos()
-  renv::snapshot(dev = TRUE, prompt = FALSE)
+intent_snapshot <- function(project) {
+  repos <- load_intent_repos(project)
+  backend_snapshot(project, repos)
 }
 
 #' @keywords internal
-intent_restore <- function() {
-  load_intent_repos()
-  renv::restore(clean = TRUE, prompt = FALSE)
+intent_restore <- function(project) {
+  repos <- load_intent_repos(project)
+  backend_restore(project, repos)
 }
 
 #' @keywords internal
-intent_set_project_dep <- function(package, type, version = "*") {
+intent_set_project_dep <- function(project, package, type, version = "*") {
   desc::desc_set_dep(
     package = package,
     type = type,
     version = version,
-    file = file.path(renv::project(), "DESCRIPTION"),
+    file = file.path(project, "DESCRIPTION"),
     normalize = TRUE
   )
 }
 
 #' @keywords internal
-intent_del_project_dep <- function(package) {
+intent_del_project_dep <- function(project, package) {
   desc::desc_del_dep(
     package = package,
-    file = file.path(renv::project(), "DESCRIPTION"),
+    file = file.path(project, "DESCRIPTION"),
     normalize = TRUE
   )
 }
 
 #' @keywords internal
-intent_get_project_deps <- function() {
+intent_get_project_deps <- function(project) {
   desc::desc_get_deps(
-    file = file.path(renv::project(), "DESCRIPTION")
+    file = file.path(project, "DESCRIPTION")
   )
+}
+
+#' @keywords internal
+intent_sync_project <- function(project) {
+  repos <- load_intent_repos(project)
+  backend_snapshot(project, repos)
+  backend_restore(project, repos)
 }

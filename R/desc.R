@@ -1,14 +1,6 @@
 check_path_to_description <- function(path_to_description) {
-  if (!file.exists(path_to_description)) {
-    message("Provided DESCRIPTION does not exist.")
-    path_to_description_renv <- file.path(renv::project(), "DESCRIPTION")
-    if (file.exists(path_to_description_renv)) {
-      message("Will use DESCRIPTION under active renv project.")
-      path_to_description <- path_to_description_renv
-    } else {
-      stop("No valid DESCRIPTION found.")
-    }
-  }
+  # We don't want to aggressively fall back to renv::project() DESCRIPTION
+  # if the user specifically provided a path that doesn't exist yet (like in init).
   path_to_description
 }
 
@@ -92,13 +84,106 @@ read_intent_config <- function(
 get_repos <- function(
   path_to_description = file.path(getwd(), "DESCRIPTION")
 ) {
-  config <- read_intent_config(
-    path_to_description = path_to_description,
-    mandatory = "repos"
+  config <- tryCatch(
+    read_intent_config(
+      path_to_description = path_to_description,
+      mandatory = "repos"
+    ),
+    error = function(e) list(repos = list())
   )
   repos <- unlist(config$repos)
   if (length(repos) == 0) {
-    stop("No repositories found in Config/intent/repos/.")
+    # Don't stop, just return empty if not found, unless mandatory was truly needed
+    return(character())
   }
   repos
+}
+
+
+#' Read dependency overrides from DESCRIPTION
+#'
+#' @param path_to_description Path to the DESCRIPTION file.
+#'
+#' @return A list with two elements: `overrides` (named list of parsed override objects)
+#'   and `extra_repos` (named vector of additional repositories).
+#' @keywords internal
+get_intent_overrides <- function(
+  path_to_description = file.path(getwd(), "DESCRIPTION")
+) {
+  # We use a tryCatch because Config/intent/Imports or Suggests might not exist
+  config <- tryCatch(
+    read_intent_config(
+      path_to_description = path_to_description,
+      permissive = c("Imports", "Suggests")
+    ),
+    error = function(e) list()
+  )
+
+  overrides <- list()
+  extra_repos <- character()
+
+  # Process Imports and Suggests
+  for (type in c("Imports", "Suggests")) {
+    if (type %in% names(config)) {
+      items <- config[[type]]
+      if (is.list(items)) {
+        # e.g. Config/intent/Imports/pkg: ...
+        items <- unlist(items)
+      }
+      for (item in items) {
+        parsed <- parse_override(item)
+        overrides[[parsed$package]] <- parsed
+        if (!is.null(parsed$repo)) {
+          repo_name <- paste0("override_", parsed$package)
+          extra_repos[repo_name] <- parsed$repo
+        }
+      }
+    }
+  }
+
+  list(overrides = overrides, extra_repos = extra_repos)
+}
+
+
+#' Parse a dependency override string
+#'
+#' @param override_str String in format "package@version@source"
+#'
+#' @return A list with `package`, `version`, `ref` (pak reference), and `repo` (optional).
+#' @keywords internal
+parse_override <- function(override_str) {
+  parts <- strsplit(override_str, "@", fixed = TRUE)[[1]]
+  if (length(parts) != 3 || any(parts == "")) {
+    stop(sprintf(
+      "Invalid override format: %s. Expected package@version@source",
+      override_str
+    ))
+  }
+
+  pkg <- parts[1]
+  ver <- parts[2]
+  src <- parts[3]
+
+  # Extract package name if it's user/repo
+  pkg_name <- basename(pkg)
+
+  ref <- NULL
+  repo <- NULL
+
+  if (grepl("^https?://", src)) {
+    # URL source
+    repo <- src
+    ref <- sprintf("%s@%s", pkg_name, ver)
+  } else if (src %in% c("cran", "standard")) {
+    ref <- sprintf("%s@%s", pkg_name, ver)
+  } else if (src %in% c("github", "bioc", "local", "url")) {
+    ref <- sprintf("%s::%s@%s", src, pkg, ver)
+  } else {
+    stop(sprintf(
+      "Invalid override source: %s. Supported sources are cran, standard, github, bioc, local, url, or an http(s) repository URL",
+      src
+    ))
+  }
+
+  list(package = pkg_name, version = ver, ref = ref, repo = repo)
 }

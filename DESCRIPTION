@@ -15,12 +15,12 @@ Depends:
 Imports:
     callr,
     desc,
+    jsonlite,
     pak,
     renv
 Suggests:
     covr (>= 3.6.5),
     devtools (>= 2.4.6),
-    jsonlite (>= 2.0.0),
     languageserver (>= 0.3.16),
     mockery (>= 0.4.5),
     pkgload (>= 1.4.1),
@@ -30,6 +30,6 @@ Suggests:
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.3
 Config/intent/repos/rspm: https://packagemanager.posit.co/cran/latest
 Config/intent/repos/r-multiverse: https://community.r-multiverse.org
+Config/roxygen2/version: 8.0.0

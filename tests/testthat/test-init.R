@@ -1,3 +1,21 @@
+test_that("init defaults to PPM when no repos provided", {
+  tmp_dir <- tempfile()
+  dir.create(tmp_dir)
+  on.exit(unlink(tmp_dir, recursive = TRUE))
+
+  mockery::stub(cmd_init, "backend_init", function(project, repos) {
+    expect_equal(repos[["CRAN"]], "https://packagemanager.posit.co/cran/latest")
+  })
+
+  cmd_init(path = tmp_dir, repos = NULL)
+
+  rproject <- desc::description$new(file.path(tmp_dir, "DESCRIPTION"))
+  expect_equal(
+    rproject$get_field("Config/intent/repos/CRAN"),
+    "https://packagemanager.posit.co/cran/latest"
+  )
+})
+
 test_that("intent::init creates necessary files", {
   # Use a temp directory for the project
   tmp_dir <- file.path(
@@ -10,7 +28,7 @@ test_that("intent::init creates necessary files", {
     unlink(tmp_dir, recursive = TRUE)
   }
 
-  # Mocking utils::check_missing_deps or ensuring environment has them
+  # Mocking utils::check_renv_loaded or ensuring environment has them
   # For this test, we assume the environment is set up (we are running in code editor agent)
 
   # Run init

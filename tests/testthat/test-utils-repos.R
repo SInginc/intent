@@ -1,4 +1,4 @@
-test_that("load_intent_repos sets options correctly", {
+test_that("load_intent_repos returns repos without setting options", {
   tmp_dir <- file.path(
     Sys.getenv("R_USER_CACHE_DIR", unset = tempdir()),
     paste0("intent_test_utils_repos_", Sys.getpid())
@@ -15,31 +15,80 @@ test_that("load_intent_repos sets options correctly", {
     desc_path
   )
 
-  # Mock renv::project() to return tmp_dir
-  # We might need to set up a real renv project or mock the function
-  # For now, let's assume we can mock or the function handles lack of project gracefully
+  before <- getOption("repos")
+  repos <- load_intent_repos(tmp_dir)
+  after <- getOption("repos")
 
-  withr::with_options(list(repos = NULL), {
-    # Since load_intent_repos uses renv::project(), we need to initialize it
-    # or ensure we are in a project context.
-    # A better way is to pass the path or mock renv::project().
+  expect_equal(repos[["TEST"]], "https://test.repo")
+  expect_equal(before, after)
+})
 
-    # For testing, let's temporarily mock renv::project
-    if (!requireNamespace("mockery", quietly = TRUE)) {
-      # Fallback: manual mock if mockery not available
-      old_proj <- renv::project
-      unlockBinding("project", asNamespace("renv"))
-      assignInNamespace("project", function(...) tmp_dir, ns = "renv")
-      on.exit({
-        assignInNamespace("project", old_proj, ns = "renv")
-        lockBinding("project", asNamespace("renv"))
-      })
-    } else {
-      m <- mockery::mock(tmp_dir)
-      mockery::stub(load_intent_repos, "renv::project", m)
+test_that("extract_pkg_name strips user/repo and @version", {
+  expect_equal(extract_pkg_name("dplyr"), "dplyr")
+  expect_equal(extract_pkg_name("user/dplyr"), "dplyr")
+  expect_equal(extract_pkg_name("dplyr@1.0.0"), "dplyr")
+  expect_equal(extract_pkg_name("user/dplyr@0.1.0"), "dplyr")
+  expect_equal(extract_pkg_name("tidyverse/dplyr@1.1.4"), "dplyr")
+})
+
+test_that("intent_get_project_deps reads DESCRIPTION dependencies", {
+  tmp_dir <- tempfile()
+  dir.create(tmp_dir)
+  on.exit(unlink(tmp_dir, recursive = TRUE))
+
+  writeLines(
+    c(
+      "Package: testpkg",
+      "Imports:",
+      "    dplyr,",
+      "    glue",
+      "Suggests:",
+      "    testthat"
+    ),
+    file.path(tmp_dir, "DESCRIPTION")
+  )
+
+  deps <- intent_get_project_deps(tmp_dir)
+  expect_true("dplyr" %in% deps$package)
+  expect_true("glue" %in% deps$package)
+  expect_true("testthat" %in% deps$package)
+})
+
+test_that("intent_sync_project calls backend snapshot and restore", {
+  tmp_dir <- tempfile()
+  dir.create(tmp_dir)
+  on.exit(unlink(tmp_dir, recursive = TRUE))
+
+  writeLines(
+    c(
+      "Package: testpkg",
+      "Config/intent/repos/CRAN: https://example.com"
+    ),
+    file.path(tmp_dir, "DESCRIPTION")
+  )
+
+  snap_called <- NULL
+  rest_called <- NULL
+
+  mockery::stub(
+    intent_sync_project,
+    "backend_snapshot",
+    function(project, repos) {
+      snap_called <<- list(project = project, repos = repos)
     }
+  )
+  mockery::stub(
+    intent_sync_project,
+    "backend_restore",
+    function(project, repos) {
+      rest_called <<- list(project = project, repos = repos)
+    }
+  )
 
-    load_intent_repos()
-    expect_equal(getOption("repos")[["TEST"]], "https://test.repo")
-  })
+  intent_sync_project(tmp_dir)
+
+  expect_equal(snap_called$project, tmp_dir)
+  expect_equal(rest_called$project, tmp_dir)
+  expect_equal(snap_called$repos[["CRAN"]], "https://example.com")
+  expect_equal(rest_called$repos[["CRAN"]], "https://example.com")
 })

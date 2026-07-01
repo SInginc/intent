@@ -1,0 +1,2 @@
+#!/usr/bin/env Rscript
+intent:::intent_cli()

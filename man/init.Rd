@@ -4,15 +4,15 @@
 \alias{init}
 \title{Initialize an intent Project}
 \usage{
-init(
-  path = ".",
-  repos = c(CRAN = "https://packagemanager.posit.co/cran/latest")
-)
+init(path = ".", repos = NULL)
 }
 \arguments{
 \item{path}{Character string. Path to the new project directory. Defaults to current working directory.}
 
-\item{repos}{Character vector. Repositories to use. Defaults to \code{getOption("repos")}.}
+\item{repos}{Character vector. Named repositories to use. Defaults to
+\href{https://packagemanager.posit.co/cran/latest}{Posit Package Manager}
+when neither this argument nor an existing DESCRIPTION file provides
+repository configuration.}
 }
 \description{
 Sets up a directory as an \code{intent} project by creating a \code{DESCRIPTION} file (if missing),

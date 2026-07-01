@@ -2,16 +2,44 @@
 # Need help debugging build failures? Start at https://github.com/r-lib/actions#where-to-find-help
 on:
   push:
-    branches: [main, master]
+    branches: [main, master, dev]
   pull_request:
-    branches:
-      main
+    branches: [main]
 
 name: R-CMD-check.yaml
 
 permissions: read-all
 
 jobs:
+  quality:
+    runs-on: ubuntu-latest
+
+    name: quality
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: posit-dev/setup-air@v1
+
+      - uses: actions/setup-python@v5
+
+      - name: Run pre-commit
+        run: pipx run pre-commit run --all-files
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::devtools
+          needs: document
+
+      - name: Check generated documentation
+        run: |
+          Rscript -e 'devtools::document()'
+          git diff --exit-code NAMESPACE man
+
   R-CMD-check:
     runs-on: ${{ matrix.config.os }}
 

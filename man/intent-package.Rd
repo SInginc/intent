@@ -19,5 +19,10 @@ Useful links:
 \author{
 \strong{Maintainer}: Jack Liu \email{xiaochang.jack.liu@gmail.com}
 
+Authors:
+\itemize{
+  \item Jack Liu \email{xiaochang.jack.liu@gmail.com}
+}
+
 }
 \keyword{internal}

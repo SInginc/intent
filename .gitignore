@@ -1,1 +1,11 @@
 design
+
+renv
+renv.lock
+
+# env vars
+.env
+.Renviron
+
+# R profile
+.Rprofile

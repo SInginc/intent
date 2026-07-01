@@ -4,12 +4,16 @@
 \alias{add}
 \title{Add a Dependency}
 \usage{
-add(pkgs, dev = FALSE)
+add(pkgs, dev = FALSE, project = NULL, dry_run = FALSE)
 }
 \arguments{
 \item{pkgs}{Character vector. Names of packages to add. Supports CRAN names or "user/repo" for GitHub.}
 
 \item{dev}{Logical. If \code{TRUE}, adds packages to "Suggests". If \code{FALSE} (default), adds to "Imports".}
+
+\item{project}{Path to the project directory. Defaults to the current intent project.}
+
+\item{dry_run}{Logical. If \code{TRUE}, returns the planned actions without changing files or packages.}
 }
 \description{
 Adds a package to the \code{DESCRIPTION} file, installs it into the local library using \code{pak},
