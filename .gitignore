@@ -1,4 +1,7 @@
 design
+sandbox/test-project/
+sandbox/*/renv/
+sandbox/*/renv.lock
 
 renv
 renv.lock
