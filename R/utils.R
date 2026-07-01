@@ -62,17 +62,6 @@ resolve_project <- function(project = NULL) {
     return(project)
   }
 
-  active_project <- tryCatch(
-    renv::project(),
-    error = function(e) NULL
-  )
-  if (!is.null(active_project)) {
-    active_project <- normalize_project_path(active_project)
-    if (file.exists(file.path(active_project, "DESCRIPTION"))) {
-      return(active_project)
-    }
-  }
-
   stop(
     "No intent project found. Run `intent::init()` or pass `project =`.",
     call. = FALSE
@@ -81,10 +70,11 @@ resolve_project <- function(project = NULL) {
 
 #' Load Repositories from DESCRIPTION
 #'
-#' Reads the repositories defined in `Config/intent/repos/` and sets them
-#' in the global `options(repos)`.
+#' Reads the repositories defined in `Config/intent/repos/` and returns
+#' them as a named character vector.
 #' @param project Path to the project directory.
 #' @param more_repos Optional character vector of additional repositories.
+#' @return A named character vector of repositories.
 #' @keywords internal
 load_intent_repos <- function(project, more_repos = NULL) {
   path_to_desc <- file.path(project, "DESCRIPTION")
@@ -98,9 +88,7 @@ load_intent_repos <- function(project, more_repos = NULL) {
     repos <- c(more_repos, repos)
   }
 
-  if (length(repos) > 0) {
-    options(repos = repos)
-  }
+  repos
 }
 
 #' @keywords internal
@@ -111,7 +99,7 @@ intent_install <- function(project, pkgs) {
     overrides_info <- get_intent_overrides(path_to_desc)
   }
 
-  load_intent_repos(project, more_repos = overrides_info$extra_repos)
+  repos <- load_intent_repos(project, more_repos = overrides_info$extra_repos)
 
   # Apply overrides to pkgs
   resolved_pkgs <- vapply(
@@ -126,19 +114,19 @@ intent_install <- function(project, pkgs) {
     character(1)
   )
 
-  backend_install(project, resolved_pkgs)
+  backend_install(project, resolved_pkgs, repos)
 }
 
 #' @keywords internal
 intent_snapshot <- function(project) {
-  load_intent_repos(project)
-  backend_snapshot(project)
+  repos <- load_intent_repos(project)
+  backend_snapshot(project, repos)
 }
 
 #' @keywords internal
 intent_restore <- function(project) {
-  load_intent_repos(project)
-  backend_restore(project)
+  repos <- load_intent_repos(project)
+  backend_restore(project, repos)
 }
 
 #' @keywords internal
@@ -166,4 +154,11 @@ intent_get_project_deps <- function(project) {
   desc::desc_get_deps(
     file = file.path(project, "DESCRIPTION")
   )
+}
+
+#' @keywords internal
+intent_sync_project <- function(project) {
+  repos <- load_intent_repos(project)
+  backend_snapshot(project, repos)
+  backend_restore(project, repos)
 }

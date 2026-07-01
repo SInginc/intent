@@ -4,12 +4,15 @@
 \alias{sync}
 \title{Sync the Environment}
 \usage{
-sync(project = NULL, dry_run = FALSE)
+sync(project = NULL, dry_run = FALSE, prune = TRUE)
 }
 \arguments{
 \item{project}{Path to the project directory. Defaults to the current intent project.}
 
 \item{dry_run}{Logical. If \code{TRUE}, returns the planned actions without changing files or packages.}
+
+\item{prune}{Logical. If \code{TRUE} (default), removes packages from the lockfile
+that are no longer declared in \code{DESCRIPTION}.}
 }
 \description{
 Ensures the \code{DESCRIPTION} file matches the \code{renv.lock} file exactly.

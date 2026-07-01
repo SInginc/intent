@@ -107,9 +107,13 @@ test_that("intent_install applies overrides", {
       loaded_repos <<- more_repos
     }
   )
-  mockery::stub(intent_install, "backend_install", function(project, pkgs) {
-    installed_pkgs <<- pkgs
-  })
+  mockery::stub(
+    intent_install,
+    "backend_install",
+    function(project, pkgs, repos) {
+      installed_pkgs <<- pkgs
+    }
+  )
   mockery::stub(intent_install, "file.exists", function(...) TRUE)
 
   intent_install(".", "glue")

@@ -11,8 +11,11 @@ load_intent_repos(project, more_repos = NULL)
 
 \item{more_repos}{Optional character vector of additional repositories.}
 }
+\value{
+A named character vector of repositories.
+}
 \description{
-Reads the repositories defined in \verb{Config/intent/repos/} and sets them
-in the global \code{options(repos)}.
+Reads the repositories defined in \verb{Config/intent/repos/} and returns
+them as a named character vector.
 }
 \keyword{internal}

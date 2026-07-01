@@ -46,3 +46,6 @@ plan, and updated after implementation with the actual result.
 - [010 JSON Machine-Readable Output](010-json-machine-readable-output.md)
 - [011 Override User Documentation](011-override-user-documentation.md)
 - [012 Smaller Improvements](012-smaller-improvements.md)
+- [013 Renv Boundary Cleanup](013-renv-boundary-cleanup.md)
+- [014 CLI Design Document Update](014-cli-design-doc-update.md)
+- [015 Layering Cleanup](015-layering-cleanup.md)

@@ -31,9 +31,13 @@ backend_init <- function(project, repos) {
   backend_write_lockfile(lockfile, project)
 }
 
-backend_install <- function(project, pkgs) {
+backend_install <- function(project, pkgs, repos = NULL) {
   lib_loc <- backend_library(project)
   message("Installing packages into ", lib_loc, "...")
+  if (length(repos) > 0) {
+    old_repos <- options(repos = repos)
+    on.exit(options(old_repos), add = TRUE)
+  }
   pak::pkg_install(pkgs, lib = lib_loc, ask = FALSE)
 }
 
@@ -41,23 +45,31 @@ backend_remove <- function(project, pkgs) {
   renv::remove(pkgs, project = project)
 }
 
-backend_snapshot <- function(project) {
-  renv::snapshot(
+backend_snapshot <- function(project, repos = NULL) {
+  sn_args <- list(
     project = project,
     library = backend_library(project),
     lockfile = file.path(project, "renv.lock"),
     dev = TRUE,
     prompt = FALSE
   )
+  if (length(repos) > 0) {
+    sn_args$repos <- repos
+  }
+  do.call(renv::snapshot, sn_args)
 }
 
-backend_restore <- function(project) {
-  renv::restore(
+backend_restore <- function(project, repos = NULL) {
+  res_args <- list(
     project = project,
     lockfile = file.path(project, "renv.lock"),
     clean = TRUE,
     prompt = FALSE
   )
+  if (length(repos) > 0) {
+    res_args$repos <- repos
+  }
+  do.call(renv::restore, res_args)
 }
 
 backend_read_lockfile <- function(project) {

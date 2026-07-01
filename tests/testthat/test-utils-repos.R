@@ -1,4 +1,4 @@
-test_that("load_intent_repos sets options correctly", {
+test_that("load_intent_repos returns repos without setting options", {
   tmp_dir <- file.path(
     Sys.getenv("R_USER_CACHE_DIR", unset = tempdir()),
     paste0("intent_test_utils_repos_", Sys.getpid())
@@ -15,10 +15,12 @@ test_that("load_intent_repos sets options correctly", {
     desc_path
   )
 
-  withr::with_options(list(repos = NULL), {
-    load_intent_repos(tmp_dir)
-    expect_equal(getOption("repos")[["TEST"]], "https://test.repo")
-  })
+  before <- getOption("repos")
+  repos <- load_intent_repos(tmp_dir)
+  after <- getOption("repos")
+
+  expect_equal(repos[["TEST"]], "https://test.repo")
+  expect_equal(before, after)
 })
 
 test_that("extract_pkg_name strips user/repo and @version", {

@@ -66,7 +66,7 @@ cmd_init <- function(path = ".", repos = NULL) {
   if (!dir.exists(file.path(project_dir, "renv"))) {
     backend_init(project_dir, repos)
   } else {
-    cmd_sync(project = project_dir)
+    intent_sync_project(project_dir)
   }
 
   renviron_path <- file.path(project_dir, ".Renviron")
