@@ -1,6 +1,6 @@
 # CI Quality Gates
 
-Status: `planned`
+Status: `implemented`
 
 ## Problem
 
@@ -72,7 +72,8 @@ direct dev pushes get feedback.
 
 ## Result / Follow-Up Notes
 
-Fill this in after implementation.
-
-- Result:
-- Follow-up work:
+- Result: Added a GitHub Actions `quality` job for Air-backed pre-commit checks
+  and roxygen documentation drift detection, made pull request branches explicit,
+  and enabled direct push CI for `dev`.
+- Follow-up work: Watch the first GitHub run to confirm `pipx run pre-commit`
+  and `posit-dev/setup-air@v1` behave as expected in CI.
