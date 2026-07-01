@@ -3,7 +3,6 @@
 <!-- badges: start -->
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 [![R-CMD-check](https://github.com/SInginc/intent/actions/workflows/R-CMD-check.yaml/badge.svg)](https://github.com/SInginc/intent/actions/workflows/R-CMD-check.yaml)
-[![Codecov test coverage](https://codecov.io/gh/SInginc/intent/graph/badge.svg)](https://app.codecov.io/gh/SInginc/intent)
 <!-- badges: end -->
 
 **`intent`** is a productivity-focused R package manager inspired by Python's `uv`. It provides a single interface to manage project dependencies, using the `DESCRIPTION` file as your **intent** (what you want) and `renv.lock` as your **state** (what you have).
@@ -29,6 +28,7 @@ In standard R, keeping your `DESCRIPTION` file, your installed packages, and you
 | **Add Dependency** | Edit `DESCRIPTION`, run `install.packages()`, run `renv::snapshot()` | `intent::add("pkg")` |
 | **Remove Dependency** | Edit `DESCRIPTION`, run `remove.packages()`, run `renv::snapshot()` | `intent::remove("pkg")` |
 | **Sync Environment** | Run `renv::restore()`, manually check consistency | `intent::sync()` |
+| **Check Status** | Manually compare DESCRIPTION, lockfile, and library | `intent::status()` |
 
 ### intent vs Python uv
 
@@ -38,6 +38,7 @@ In standard R, keeping your `DESCRIPTION` file, your installed packages, and you
 | **Add Dependency** | `uv add pkg` | `intent::add("pkg")` |
 | **Remove Dependency** | `uv remove pkg` | `intent::remove("pkg")` |
 | **Sync Environment** | `uv sync` | `intent::sync()` |
+| **Check Status** | `uv status` | `intent::status()` |
 
 ---
 
@@ -87,26 +88,41 @@ intent --help
 
 ## Usage Example
 
-```r
-# 1. Initialize a new project and
-intent::init("my_project")
-```
+### Terminal (CLI)
 
 ```bash
-# 2. Restart your R session just like you would do after calling `renv::init()`
+# Initialize a new project
+intent init my_project
+
+# Add dependencies
+intent add dplyr
+intent add ggplot2
+intent add testthat --dev
+
+# Check what's out of sync
+intent status
+
+# Preview changes before applying them
+intent sync --dry-run
+
+# Sync environment
+intent sync
+
+# Remove a dependency
+intent remove ggplot2
 ```
 
+### R API
+
 ```r
-# 2. Add dependencies
-intent::add("dplyr")                    # Add to Imports
-intent::add("ggplot2")                  # Add another
-intent::add("testthat", dev = TRUE)     # Add to Suggests (dev dependency)
-
-# 3. Work on your project...
-# After a git pull or when packages are out of sync:
+# Same commands, same behavior
+intent::init("my_project")
+intent::add("dplyr")
+intent::add("ggplot2")
+intent::add("testthat", dev = TRUE)
+intent::status()
+intent::sync(dry_run = TRUE)
 intent::sync()
-
-# 4. Clean up unused packages
 intent::remove("ggplot2")
 ```
 
@@ -138,6 +154,10 @@ flowchart LR
     SYNC["intent::sync()"] --> LOCK
     SYNC --> LIB
 
+    STATUS["intent::status()"] -.->|"reads"| DESC
+    STATUS -.->|"reads"| LOCK
+    STATUS -.->|"reads"| LIB
+
     DESC -.->|"single source of truth"| SYNC
 ```
 
@@ -145,38 +165,53 @@ flowchart LR
 
 ## Key Functions
 
-### `intent::init()`
+### `intent::init(path, repos)`
 
 Initializes a new or existing directory as an `intent` project.
 
 * Creates a `DESCRIPTION` file if it doesn't exist.
 * Initializes a "bare" `renv` environment.
 * Sets `renv` to **explicit mode** (only tracks packages in `DESCRIPTION`).
-* Configures `.Rprofile` to ensure the environment loads on startup.
+* Configures `.Rprofile` and `.Renviron` for automatic environment loading.
+* **Defaults to [Posit Package Manager](https://packagemanager.posit.co/cran/latest)**
+  when no repositories are specified. Use `repos = c(CRAN = "...")` to override.
 
-### `intent::add(pkgs)`
+### `intent::add(pkgs, dev = FALSE, dry_run = FALSE)`
 
 The primary way to grow your project.
 
-* **Manifest Update:** Adds the specified package(s) to the `Imports` section of your `DESCRIPTION`.
+* **Manifest Update:** Adds the specified package(s) to the `Imports` section of your `DESCRIPTION` (or `Suggests` when `dev = TRUE`).
 * **Fast Install:** Uses `pak` to resolve and install the packages into your local project library.
 * **Locking:** Automatically runs an `renv::snapshot()` to update your `renv.lock`.
+* **Dry Run:** Use `dry_run = TRUE` to preview planned actions without changing files.
 
-### `intent::remove(pkgs)`
+### `intent::remove(pkgs, dry_run = FALSE)`
 
 The clean-up tool.
 
 * Removes the package from the `DESCRIPTION` file.
 * Uninstalls the package from the local library.
-* Updates the `renv.lock` file to reflect the change.
+* Updates the `renv.lock` file and prunes orphan dependencies.
+* **Dry Run:** Use `dry_run = TRUE` to preview without changing files.
 
-### `intent::sync()`
+### `intent::sync(dry_run = FALSE, prune = TRUE)`
 
 Syncs `renv.lock` to match the `DESCRIPTION` file, then restores the local library.
 
-* Updates the lockfile to reflect any changes in `DESCRIPTION`.
-* Uses `pak` to speed up the installation process if packages are missing.
+* Installs packages declared in `DESCRIPTION` but missing from the lockfile.
+* **Prune:** Removes packages from the lockfile that are no longer declared (on by default; disable with `prune = FALSE`).
+* **Dry Run:** Use `dry_run = TRUE` to preview planned actions.
 * Ideal for use after editing `DESCRIPTION` or after `git pull`.
+
+### `intent::status()`
+
+Reports drift between manifest, lockfile, and library **without changing anything**.
+
+* Lists packages declared but not locked.
+* Lists packages locked but not declared.
+* Lists packages locked but not installed in the local library.
+* Returns a structured object with `print()` and JSON (`as.character()`) output.
+* CLI: use `intent status --json` for machine-readable output.
 
 ---
 
@@ -311,16 +346,18 @@ Below are the technical specifications for the core API.
 **Arguments:**
 
 * `path`: Directory path (defaults to current).
-* `repos`: Character vector of CRAN-like repositories.
+* `repos`: Character vector of CRAN-like repositories. Defaults to
+  [Posit Package Manager](https://packagemanager.posit.co/cran/latest).
 
 **Logical Flow:**
 
 1. **Infrastructure:** Create `DESCRIPTION` if missing.
-2. **State Init:** Call `renv::init(bare = TRUE)`. This creates the `renv/` folder and `renv.lock` without scanning files.
-3. **Policy Setting:** Set `renv::settings$snapshot.type("explicit")`. This is non-negotiable for the `intent` workflow.
-4. **Bootstrapping:** Write `source("renv/activate.R")` to `.Rprofile`.
-5. Append `options(repos = ...)` to `.Rprofile` to ensure the "Intent" for sources is saved.
-6. Set `RENV_CONFIG_PAK_ENABLED=TRUE` in `.Renviron` to enable `pak` as the installation engine.
+2. **Repository Default:** If no `repos` are provided and none exist in an
+   existing DESCRIPTION, default to Posit Package Manager.
+3. **State Init:** Call `renv::init(bare = TRUE)`. This creates the `renv/` folder and `renv.lock` without scanning files.
+4. **Policy Setting:** Set `renv::settings$snapshot.type("explicit")`. This is non-negotiable for the `intent` workflow.
+5. **Bootstrapping:** Write `source("renv/activate.R")` to `.Rprofile`.
+6. **Engine Config:** Set `RENV_CONFIG_PAK_ENABLED=TRUE` in `.Renviron` to enable `pak` as the installation engine.
 
 **Exit State:**
 
@@ -335,6 +372,7 @@ A project ready for `intent::add()`, with a clean local library and an empty `re
 * **Arguments:**
   * `pkgs`: Character vector of package names (supports `user/repo` for GitHub).
   * `dev`: Defaults to `FALSE`. If `FALSE`, adds packages to `"Imports"` section. If `TRUE`, adds packages to `"Suggests"` section.
+  * `dry_run`: Defaults to `FALSE`. If `TRUE`, returns a plan without installing or writing files.
 
 * **Logical Flow:**
 
@@ -358,6 +396,7 @@ A project ready for `intent::add()`, with a clean local library and an empty `re
 
 * **Arguments:**
   * `pkgs`: Character vector of package names to remove.
+  * `dry_run`: Defaults to `FALSE`. If `TRUE`, returns a plan without removing files.
 
 * **Logical Flow:**
 
@@ -375,15 +414,41 @@ A project ready for `intent::add()`, with a clean local library and an empty `re
 
 **Objective:** Ensure the local library perfectly matches the `DESCRIPTION` file.
 
+* **Arguments:**
+  * `dry_run`: Defaults to `FALSE`. If `TRUE`, returns a plan without changing files.
+  * `prune`: Defaults to `TRUE`. If `TRUE`, removes packages from the lockfile
+    that are no longer declared in `DESCRIPTION`.
+
 * **Logical Flow:**
 
 1. **Comparison:** Compare `DESCRIPTION` against the current contents of `renv.lock`:
-    * What packages (and their dependencies) are in `DESCRIPTION` but not in renv.lock?
-    * What packages (and their dependencies) are not in `DESCRIPTION` but in renv.lock?
-2. Install missing dependencies with `renv::install(c(...), lock = TRUE)`
-3. Remove extra dependencies
+    * What packages are in `DESCRIPTION` but not in `renv.lock`?
+    * What packages are in `renv.lock` but not in `DESCRIPTION`?
+2. Install missing dependencies.
+3. Remove extra dependencies (when `prune = TRUE`).
+4. Restore the library from the updated lockfile.
 
 * **Exit State:** The local environment is a perfect binary mirror of the `renv.lock` file.
+
+---
+
+## 5. `intent::status()`
+
+**Objective:** Report drift without mutating state.
+
+* **Arguments:**
+  * `project`: Path to the project directory. Defaults to the current intent project.
+
+* **Logical Flow:**
+
+1. Read declared packages from `DESCRIPTION`.
+2. Read locked packages from `renv.lock`.
+3. Read installed packages from the project library.
+4. Report differences between the three sources of truth.
+
+* **Exit State:** No files or packages are changed. Returns an `intent_status`
+  object. Use `as.character(status())` or `intent status --json` for
+  machine-readable output.
 
 ---
 
@@ -395,5 +460,6 @@ A project ready for `intent::add()`, with a clean local library and an empty `re
 | `add` | `desc` + `pak` | `DESCRIPTION` | Manifest & Library |
 | `remove` | `desc` + `renv` | `DESCRIPTION` | Manifest & Library |
 | `sync` | `renv` + `pak` | `renv.lock` | Library State |
+| `status` | `desc` + `renv` | (read-only) | Drift Inspection |
 
 ---
