@@ -1,4 +1,6 @@
-cmd_init <- function(path = ".", repos = NULL) {
+cmd_init <- function(path = ".", repos = NULL, install_self = "hydrate") {
+  install_self <- match.arg(install_self, c("hydrate", "never"))
+  bootstrap_sources <- .libPaths()
   project_dir <- normalizePath(path, mustWork = FALSE)
 
   if (!dir.exists(path)) {
@@ -65,7 +67,9 @@ cmd_init <- function(path = ".", repos = NULL) {
 
   if (!dir.exists(file.path(project_dir, "renv"))) {
     backend_init(project_dir, repos)
+    maybe_hydrate_intent(project_dir, bootstrap_sources, install_self)
   } else {
+    maybe_hydrate_intent(project_dir, bootstrap_sources, install_self)
     intent_sync_project(project_dir)
   }
 
@@ -89,6 +93,36 @@ cmd_init <- function(path = ".", repos = NULL) {
   message("intent project initialized successfully in ", project_dir)
   message("Please restart your R session for changes to take effect.")
   invisible(project_dir)
+}
+
+maybe_hydrate_intent <- function(project, sources, install_self) {
+  if (!identical(install_self, "hydrate")) {
+    return(invisible(FALSE))
+  }
+
+  result <- tryCatch(
+    backend_hydrate(project, "intent", sources = sources),
+    error = function(e) e
+  )
+
+  intent_path <- file.path(backend_library(project), "intent")
+  if (dir.exists(intent_path)) {
+    intent_snapshot(project, force = TRUE)
+    message("Hydrated intent into the project library.")
+    return(invisible(TRUE))
+  }
+
+  message(
+    "intent was not found in the current library paths and was not installed ",
+    "into the project library. After restarting R inside this renv project, ",
+    "install intent into the project library or use an external intent CLI."
+  )
+
+  if (inherits(result, "error")) {
+    message("Hydration detail: ", conditionMessage(result))
+  }
+
+  invisible(FALSE)
 }
 
 cmd_add <- function(pkgs, dev = FALSE, project = NULL, dry_run = FALSE) {
@@ -205,8 +239,11 @@ cmd_sync <- function(project = NULL, dry_run = FALSE, prune = TRUE) {
       }
     }
     missing_pkgs <- unique(missing_pkgs)
-    extra_pkgs <- setdiff(lock_pkgs, intent_pkgs)
-    extra_pkgs <- extra_pkgs[!extra_pkgs %in% c("intent", "pak", "renv")]
+    retained_pkgs <- intent_lock_dependency_closure(
+      lock,
+      roots = c(intent_pkgs, "intent", "pak", "renv")
+    )
+    extra_pkgs <- setdiff(lock_pkgs, retained_pkgs)
   } else {
     missing_pkgs <- intent_pkgs
     extra_pkgs <- character()

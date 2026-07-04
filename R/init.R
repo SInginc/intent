@@ -9,11 +9,15 @@
 #'   [Posit Package Manager](https://packagemanager.posit.co/cran/latest)
 #'   when neither this argument nor an existing DESCRIPTION file provides
 #'   repository configuration.
+#' @param install_self Character string. `"hydrate"` attempts to copy the
+#'   currently installed `intent` package from the active library paths into the
+#'   new project library. `"never"` leaves `intent` as an external tool only.
 #'
 #' @export
 init <- function(
   path = ".",
-  repos = NULL
+  repos = NULL,
+  install_self = "hydrate"
 ) {
-  cmd_init(path = path, repos = repos)
+  cmd_init(path = path, repos = repos, install_self = install_self)
 }

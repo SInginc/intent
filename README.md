@@ -165,7 +165,7 @@ flowchart LR
 
 ## Key Functions
 
-### `intent::init(path, repos)`
+### `intent::init(path, repos, install_self = "hydrate")`
 
 Initializes a new or existing directory as an `intent` project.
 
@@ -175,6 +175,10 @@ Initializes a new or existing directory as an `intent` project.
 * Configures `.Rprofile` and `.Renviron` for automatic environment loading.
 * **Defaults to [Posit Package Manager](https://packagemanager.posit.co/cran/latest)**
   when no repositories are specified. Use `repos = c(CRAN = "...")` to override.
+* **Self-hydrates by default:** copies the currently installed `intent` package
+  from your active library paths into the project library when possible, without
+  assuming a remote source such as GitHub, CRAN, or R-universe.
+* Use `install_self = "never"` if you want `intent` to remain an external tool.
 
 ### `intent::add(pkgs, dev = FALSE, dry_run = FALSE)`
 
@@ -348,6 +352,8 @@ Below are the technical specifications for the core API.
 * `path`: Directory path (defaults to current).
 * `repos`: Character vector of CRAN-like repositories. Defaults to
   [Posit Package Manager](https://packagemanager.posit.co/cran/latest).
+* `install_self`: `"hydrate"` copies the currently installed `intent` package
+  into the project library when possible. `"never"` leaves `intent` external.
 
 **Logical Flow:**
 
@@ -357,11 +363,17 @@ Below are the technical specifications for the core API.
 3. **State Init:** Call `renv::init(bare = TRUE)`. This creates the `renv/` folder and `renv.lock` without scanning files.
 4. **Policy Setting:** Set `renv::settings$snapshot.type("explicit")`. This is non-negotiable for the `intent` workflow.
 5. **Bootstrapping:** Write `source("renv/activate.R")` to `.Rprofile`.
-6. **Engine Config:** Set `RENV_CONFIG_PAK_ENABLED=TRUE` in `.Renviron` to enable `pak` as the installation engine.
+6. **Tool Hydration:** If `install_self = "hydrate"`, copy the already-installed
+   `intent` package from the current library paths into the project library when
+   available, then snapshot it.
+7. **Engine Config:** Set `RENV_CONFIG_PAK_ENABLED=TRUE` in `.Renviron` to enable `pak` as the installation engine.
 
 **Exit State:**
 
-A project ready for `intent::add()`, with a clean local library and an empty `renv.lock`.
+A project ready for `intent::add()`. If self-hydration succeeds,
+`library(intent)` works after restarting inside the project. If it does not,
+the project is still initialized and `intent` can be installed from the user's
+chosen package source.
 
 ---
 

@@ -31,6 +31,18 @@ backend_init <- function(project, repos) {
   backend_write_lockfile(lockfile, project)
 }
 
+backend_hydrate <- function(project, pkgs, sources = NULL) {
+  renv::hydrate(
+    packages = pkgs,
+    library = backend_library(project),
+    sources = sources,
+    repos = character(),
+    prompt = FALSE,
+    report = FALSE,
+    project = project
+  )
+}
+
 backend_install <- function(project, pkgs, repos = NULL) {
   lib_loc <- backend_library(project)
   message("Installing packages into ", lib_loc, "...")
@@ -42,16 +54,17 @@ backend_install <- function(project, pkgs, repos = NULL) {
 }
 
 backend_remove <- function(project, pkgs) {
-  renv::remove(pkgs, project = project)
+  renv::remove(pkgs, project = project, library = backend_library(project))
 }
 
-backend_snapshot <- function(project, repos = NULL) {
+backend_snapshot <- function(project, repos = NULL, force = FALSE) {
   sn_args <- list(
     project = project,
     library = backend_library(project),
     lockfile = file.path(project, "renv.lock"),
     dev = TRUE,
-    prompt = FALSE
+    prompt = FALSE,
+    force = force
   )
   if (length(repos) > 0) {
     sn_args$repos <- repos
@@ -62,8 +75,10 @@ backend_snapshot <- function(project, repos = NULL) {
 backend_restore <- function(project, repos = NULL) {
   res_args <- list(
     project = project,
+    library = backend_library(project),
     lockfile = file.path(project, "renv.lock"),
     clean = TRUE,
+    exclude = "intent",
     prompt = FALSE
   )
   if (length(repos) > 0) {

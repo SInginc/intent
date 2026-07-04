@@ -118,9 +118,9 @@ intent_install <- function(project, pkgs) {
 }
 
 #' @keywords internal
-intent_snapshot <- function(project) {
+intent_snapshot <- function(project, force = TRUE) {
   repos <- load_intent_repos(project)
-  backend_snapshot(project, repos)
+  backend_snapshot(project, repos, force = force)
 }
 
 #' @keywords internal

@@ -58,6 +58,57 @@ intent_locked_packages <- function(project) {
   sort(names(lock$Packages %||% list()))
 }
 
+intent_lock_dependency_closure <- function(lock, roots) {
+  packages <- lock$Packages %||% list()
+  roots <- intersect(unique(roots), names(packages))
+  seen <- character()
+  queue <- roots
+
+  while (length(queue) > 0) {
+    pkg <- queue[[1]]
+    queue <- queue[-1]
+
+    if (pkg %in% seen) {
+      next
+    }
+
+    seen <- c(seen, pkg)
+    deps <- intent_lock_package_dependencies(packages[[pkg]])
+    deps <- intersect(deps, names(packages))
+    queue <- unique(c(queue, setdiff(deps, seen)))
+  }
+
+  sort(seen)
+}
+
+intent_lock_package_dependencies <- function(record) {
+  fields <- c("Depends", "Imports", "LinkingTo")
+  deps <- unlist(record[intersect(fields, names(record))], use.names = FALSE)
+  deps <- gsub("\\s*\\(.*\\)$", "", deps)
+  deps <- trimws(deps)
+  deps <- deps[nzchar(deps)]
+  sort(setdiff(
+    unique(deps),
+    c(
+      "R",
+      "base",
+      "compiler",
+      "datasets",
+      "graphics",
+      "grDevices",
+      "grid",
+      "methods",
+      "parallel",
+      "splines",
+      "stats",
+      "stats4",
+      "tcltk",
+      "tools",
+      "utils"
+    )
+  ))
+}
+
 intent_library_packages <- function(project) {
   library_path <- backend_library(project)
   if (!dir.exists(library_path)) {

@@ -4,7 +4,7 @@
 \alias{init}
 \title{Initialize an intent Project}
 \usage{
-init(path = ".", repos = NULL)
+init(path = ".", repos = NULL, install_self = "hydrate")
 }
 \arguments{
 \item{path}{Character string. Path to the new project directory. Defaults to current working directory.}
@@ -13,6 +13,10 @@ init(path = ".", repos = NULL)
 \href{https://packagemanager.posit.co/cran/latest}{Posit Package Manager}
 when neither this argument nor an existing DESCRIPTION file provides
 repository configuration.}
+
+\item{install_self}{Character string. \code{"hydrate"} attempts to copy the
+currently installed \code{intent} package from the active library paths into the
+new project library. \code{"never"} leaves \code{intent} as an external tool only.}
 }
 \description{
 Sets up a directory as an \code{intent} project by creating a \code{DESCRIPTION} file (if missing),

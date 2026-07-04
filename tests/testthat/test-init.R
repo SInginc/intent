@@ -7,13 +7,116 @@ test_that("init defaults to PPM when no repos provided", {
     expect_equal(repos[["CRAN"]], "https://packagemanager.posit.co/cran/latest")
   })
 
-  cmd_init(path = tmp_dir, repos = NULL)
+  cmd_init(path = tmp_dir, repos = NULL, install_self = "never")
 
   rproject <- desc::description$new(file.path(tmp_dir, "DESCRIPTION"))
   expect_equal(
     rproject$get_field("Config/intent/repos/CRAN"),
     "https://packagemanager.posit.co/cran/latest"
   )
+})
+
+test_that("init hydrates intent by default", {
+  tmp_dir <- tempfile()
+  dir.create(tmp_dir)
+  on.exit(unlink(tmp_dir, recursive = TRUE))
+
+  hydrated <- FALSE
+
+  mockery::stub(cmd_init, "backend_init", function(project, repos) {
+    dir.create(file.path(project, "renv"), recursive = TRUE)
+  })
+  mockery::stub(
+    cmd_init,
+    "maybe_hydrate_intent",
+    function(project, sources, install_self) {
+      hydrated <<- identical(install_self, "hydrate")
+    }
+  )
+
+  cmd_init(path = tmp_dir, repos = NULL)
+
+  expect_true(hydrated)
+})
+
+test_that("init can leave intent as an external tool", {
+  tmp_dir <- tempfile()
+  dir.create(tmp_dir)
+  on.exit(unlink(tmp_dir, recursive = TRUE))
+
+  install_self_seen <- NULL
+
+  mockery::stub(cmd_init, "backend_init", function(project, repos) {
+    dir.create(file.path(project, "renv"), recursive = TRUE)
+  })
+  mockery::stub(
+    cmd_init,
+    "maybe_hydrate_intent",
+    function(project, sources, install_self) {
+      install_self_seen <<- install_self
+    }
+  )
+
+  cmd_init(path = tmp_dir, repos = NULL, install_self = "never")
+
+  expect_equal(install_self_seen, "never")
+})
+
+test_that("intent hydration failure does not fail init", {
+  tmp_dir <- tempfile()
+  dir.create(tmp_dir)
+  on.exit(unlink(tmp_dir, recursive = TRUE))
+
+  mockery::stub(cmd_init, "backend_init", function(project, repos) {
+    dir.create(file.path(project, "renv"), recursive = TRUE)
+  })
+  mockery::stub(
+    maybe_hydrate_intent,
+    "backend_hydrate",
+    function(project, pkgs, sources) {
+      stop("not available")
+    }
+  )
+  mockery::stub(maybe_hydrate_intent, "backend_library", function(project) {
+    file.path(project, "library")
+  })
+
+  expect_message(
+    cmd_init(path = tmp_dir, repos = NULL),
+    "was not installed into the project library"
+  )
+})
+
+test_that("intent hydration force-snapshots local tool installs", {
+  tmp_dir <- tempfile()
+  dir.create(tmp_dir)
+  on.exit(unlink(tmp_dir, recursive = TRUE))
+
+  force_seen <- NULL
+  lib <- file.path(tmp_dir, "library")
+  dir.create(file.path(lib, "intent"), recursive = TRUE)
+
+  mockery::stub(
+    maybe_hydrate_intent,
+    "backend_hydrate",
+    function(project, pkgs, sources) {
+      list(intent = "hydrated")
+    }
+  )
+  mockery::stub(maybe_hydrate_intent, "backend_library", function(project) {
+    lib
+  })
+  mockery::stub(
+    maybe_hydrate_intent,
+    "intent_snapshot",
+    function(project, force) {
+      force_seen <<- force
+    }
+  )
+
+  maybe_hydrate_intent(tmp_dir, sources = character(), install_self = "hydrate")
+
+  expect_true(force_seen)
 })
 
 test_that("intent::init creates necessary files", {
