@@ -67,6 +67,7 @@ backend_snapshot <- function(
     project = project,
     library = backend_library(project),
     lockfile = lockfile,
+    type = "explicit",
     dev = TRUE,
     prompt = FALSE,
     force = force
