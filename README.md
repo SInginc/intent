@@ -174,7 +174,11 @@ Initializes a new or existing directory as an `intent` project.
 * Sets `renv` to **explicit mode** (only tracks packages in `DESCRIPTION`).
 * Configures `.Rprofile` and `.Renviron` for automatic environment loading.
 * **Defaults to [Posit Package Manager](https://packagemanager.posit.co/cran/latest)**
-  when no repositories are specified. Use `repos = c(CRAN = "...")` to override.
+  when no repositories are specified. The default repository is named `RSPM`
+  to match `renv.lock` provenance. Use `repos = c(NAME = "...")` to override.
+* In interactive sessions, confirms the default repository before writing it.
+  In non-interactive sessions, writes the default and prints how to declare
+  project repositories explicitly.
 * **Self-hydrates by default:** copies the currently installed `intent` package
   from your active library paths into the project library when possible, without
   assuming a remote source such as GitHub, CRAN, or R-universe.
@@ -214,6 +218,8 @@ Reports drift between manifest, lockfile, and library **without changing anythin
 * Lists packages declared but not locked.
 * Lists packages locked but not declared.
 * Lists packages locked but not installed in the local library.
+* Reports source policy violations, such as repository packages resolved from a
+  repository name not declared in `Config/intent/repos/`.
 * Returns a structured object with `print()` and JSON (`as.character()`) output.
 * CLI: use `intent status --json` for machine-readable output.
 
@@ -351,9 +357,11 @@ Below are the technical specifications for the core API.
 
 * `path`: Directory path (defaults to current).
 * `repos`: Character vector of CRAN-like repositories. Defaults to
-  [Posit Package Manager](https://packagemanager.posit.co/cran/latest).
+  `c(RSPM = "https://packagemanager.posit.co/cran/latest")`.
 * `install_self`: `"hydrate"` copies the currently installed `intent` package
   into the project library when possible. `"never"` leaves `intent` external.
+* `confirm_repos`: Ask before writing the default repository in interactive
+  sessions.
 
 **Logical Flow:**
 

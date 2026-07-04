@@ -6,7 +6,7 @@ small dependency manager, not like a collection of R helper functions.
 ## Command Shape
 
 ```sh
-intent init [path] [--repo NAME=URL]...
+intent init [path] [--repo NAME=URL]... [--yes] [--no-default-repo]
 intent add <package>... [--project path] [--dev] [--dry-run]
 intent remove <package>... [--project path] [--dry-run]
 intent sync [--project path] [--dry-run] [--json] [--no-prune]
@@ -42,7 +42,12 @@ Initializes the current directory or a supplied path as an `intent` project.
 
 ```
 --repo NAME=URL   Add a repository to Config/intent/repos/. Repeatable.
-                  Example: --repo CRAN=https://packagemanager.posit.co/cran/latest
+                  Example: --repo RSPM=https://packagemanager.posit.co/cran/latest
+
+--yes             Accept the default repository without prompting.
+
+--no-default-repo Fail instead of writing the default repository when no
+                  repository is configured.
 ```
 
 **Expected behavior:**
@@ -51,7 +56,9 @@ Initializes the current directory or a supplied path as an `intent` project.
 - Ensure required intent metadata exists.
 - Initialize backend state if needed.
 - Avoid overwriting existing user configuration without warning.
-- Default to Posit Package Manager (PPM) when no repos are provided.
+- Default to Posit Package Manager (PPM), named `RSPM`, when no repos are
+  provided and defaults are allowed.
+- Make repository choice visible through prompts or non-interactive messages.
 
 ### `intent add`
 
@@ -128,6 +135,7 @@ Shows drift without mutating state.
 - Report packages locked but not declared where relevant.
 - Report packages locked but not installed.
 - Report repository configuration used by the project.
+- Report source policy violations.
 - Return machine-readable output with `--json`.
 
 ## JSON Output Format
@@ -142,7 +150,20 @@ Shows drift without mutating state.
   "missing_from_lockfile": [],
   "extra_in_lockfile": ["R6", "cli", "rlang"],
   "library_path": "/path/to/project/renv/library",
-  "missing_from_library": []
+  "missing_from_library": [],
+  "source_policy": {
+    "mode": "warn",
+    "allow": {
+      "repository": true,
+      "github": true,
+      "bioc": true,
+      "url": true,
+      "local": true,
+      "unknown": false
+    },
+    "exempt_packages": ["intent", "renv", "pak"]
+  },
+  "source_violations": []
 }
 ```
 

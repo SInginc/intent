@@ -4,14 +4,14 @@ test_that("init defaults to PPM when no repos provided", {
   on.exit(unlink(tmp_dir, recursive = TRUE))
 
   mockery::stub(cmd_init, "backend_init", function(project, repos) {
-    expect_equal(repos[["CRAN"]], "https://packagemanager.posit.co/cran/latest")
+    expect_equal(repos[["RSPM"]], "https://packagemanager.posit.co/cran/latest")
   })
 
   cmd_init(path = tmp_dir, repos = NULL, install_self = "never")
 
   rproject <- desc::description$new(file.path(tmp_dir, "DESCRIPTION"))
   expect_equal(
-    rproject$get_field("Config/intent/repos/CRAN"),
+    rproject$get_field("Config/intent/repos/RSPM"),
     "https://packagemanager.posit.co/cran/latest"
   )
 })

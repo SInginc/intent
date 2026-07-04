@@ -4,7 +4,12 @@
 \alias{init}
 \title{Initialize an intent Project}
 \usage{
-init(path = ".", repos = NULL, install_self = "hydrate")
+init(
+  path = ".",
+  repos = NULL,
+  install_self = "hydrate",
+  confirm_repos = interactive()
+)
 }
 \arguments{
 \item{path}{Character string. Path to the new project directory. Defaults to current working directory.}
@@ -17,6 +22,9 @@ repository configuration.}
 \item{install_self}{Character string. \code{"hydrate"} attempts to copy the
 currently installed \code{intent} package from the active library paths into the
 new project library. \code{"never"} leaves \code{intent} as an external tool only.}
+
+\item{confirm_repos}{Logical. If \code{TRUE}, ask before writing the default
+repository when no repository is configured. Defaults to \code{interactive()}.}
 }
 \description{
 Sets up a directory as an \code{intent} project by creating a \code{DESCRIPTION} file (if missing),

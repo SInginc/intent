@@ -1,6 +1,6 @@
 # Repository Policy
 
-Status: `planned`
+Status: `implemented`
 
 ## Problem
 
@@ -56,7 +56,7 @@ Define a repository and source policy model in `DESCRIPTION` that:
 Repository configuration currently uses fields like:
 
 ```dcf
-Config/intent/repos/CRAN: https://packagemanager.posit.co/cran/latest
+Config/intent/repos/RSPM: https://packagemanager.posit.co/cran/latest
 ```
 
 `cmd_init()` writes that default when neither the `repos` argument nor an
@@ -176,10 +176,10 @@ The checker should recognize at least:
 Repository name mismatch is a policy violation. If `DESCRIPTION` declares:
 
 ```dcf
-Config/intent/repos/CRAN: https://packagemanager.posit.co/cran/latest
+Config/intent/repos/RSPM: https://packagemanager.posit.co/cran/latest
 ```
 
-then a lockfile record from `Repository: RSPM` is not considered equivalent even
+then a lockfile record from `Repository: CRAN` is not considered equivalent even
 if the URL points to the same service. The names in `renv.lock` and
 `DESCRIPTION` must agree. This keeps repository policy reviewable and avoids
 ambiguous aliases.
@@ -261,7 +261,7 @@ Extend `intent_status` with source policy information:
 source_policy = list(
   mode = "warn",
   allowed_sources = c("repository", "github", "bioc", "url", "local"),
-  allowed_repositories = c(CRAN = "https://packagemanager.posit.co/cran/latest"),
+  allowed_repositories = c(RSPM = "https://packagemanager.posit.co/cran/latest"),
   exempt_packages = c("intent", "renv", "pak")
 )
 source_violations = data.frame(
@@ -437,8 +437,15 @@ support, cache strategy, and the exact definition of cross-platform equality.
 
 ## Result / Follow-Up Notes
 
-Fill this in after implementation.
-
-- Result:
+- Result: Implemented source policy parsing from `DESCRIPTION`, lockfile
+  provenance extraction, policy violation reporting in `status()` and JSON
+  output, source preflight for requested packages and overrides, and
+  candidate-lockfile validation before replacing the official `renv.lock`.
+  Added `confirm_repos` to the R API and `--yes` / `--no-default-repo` to the
+  CLI. Changed the default Posit Package Manager repository name to `RSPM` so
+  default lockfile provenance matches `Config/intent/repos/RSPM`.
+- Result: Added tests for policy defaults, repository-name mismatch, tool
+  package exemptions, status JSON shape, strict-mode lockfile preservation, CLI
+  init automation flags, and transitive-dependency-safe pruning interactions.
 - Follow-up work: Add a cross-platform GitHub Actions reproducibility workflow
   once repository policy behavior is implemented.

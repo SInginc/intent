@@ -21,6 +21,7 @@ print.intent_status <- function(x, ...) {
   print_status_count("Missing from lockfile", x$missing_from_lockfile)
   print_status_count("Extra in lockfile", x$extra_in_lockfile)
   print_status_count("Missing from library", x$missing_from_library)
+  print_source_violations(x$source_violations)
 
   invisible(x)
 }
@@ -52,6 +53,28 @@ print_status_count <- function(label, values) {
     cat(" (", paste(values, collapse = ", "), ")", sep = "")
   }
   cat("\n")
+}
+
+print_source_violations <- function(violations) {
+  if (is.null(violations) || nrow(violations) == 0) {
+    cat("Source policy violations: 0\n")
+    return(invisible(NULL))
+  }
+
+  cat("Source policy violations: ", nrow(violations), "\n", sep = "")
+  for (i in seq_len(nrow(violations))) {
+    violation <- violations[i, , drop = FALSE]
+    cat(
+      "  - ",
+      violation$package,
+      ": ",
+      violation$reason,
+      "\n",
+      sep = ""
+    )
+  }
+
+  invisible(NULL)
 }
 
 #' @export

@@ -70,13 +70,9 @@ test_that("intent_sync_project calls backend snapshot and restore", {
   snap_called <- NULL
   rest_called <- NULL
 
-  mockery::stub(
-    intent_sync_project,
-    "backend_snapshot",
-    function(project, repos) {
-      snap_called <<- list(project = project, repos = repos)
-    }
-  )
+  mockery::stub(intent_sync_project, "intent_snapshot", function(project) {
+    snap_called <<- list(project = project)
+  })
   mockery::stub(
     intent_sync_project,
     "backend_restore",
@@ -89,6 +85,47 @@ test_that("intent_sync_project calls backend snapshot and restore", {
 
   expect_equal(snap_called$project, tmp_dir)
   expect_equal(rest_called$project, tmp_dir)
-  expect_equal(snap_called$repos[["CRAN"]], "https://example.com")
   expect_equal(rest_called$repos[["CRAN"]], "https://example.com")
+})
+
+test_that("intent_snapshot does not replace lockfile on source policy error", {
+  tmp_dir <- tempfile()
+  dir.create(tmp_dir)
+  on.exit(unlink(tmp_dir, recursive = TRUE))
+
+  writeLines(
+    c(
+      "Package: testpkg",
+      "Config/intent/repos/CRAN: https://example.com",
+      "Config/intent/source-policy/mode: error"
+    ),
+    file.path(tmp_dir, "DESCRIPTION")
+  )
+  lockfile <- file.path(tmp_dir, "renv.lock")
+  writeLines("official lockfile", lockfile)
+
+  mockery::stub(
+    intent_snapshot,
+    "backend_snapshot",
+    function(project, repos, force, lockfile) {
+      writeLines("candidate lockfile", lockfile)
+    }
+  )
+  mockery::stub(intent_snapshot, "renv::lockfile_read", function(file) {
+    list(
+      Packages = list(
+        glue = list(
+          Version = "1.0.0",
+          Source = "Repository",
+          Repository = "RSPM"
+        )
+      )
+    )
+  })
+
+  expect_error(
+    intent_snapshot(tmp_dir),
+    "official renv.lock was not updated"
+  )
+  expect_equal(readLines(lockfile), "official lockfile")
 })

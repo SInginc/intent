@@ -83,3 +83,32 @@ test_that("get_repos works as expected", {
   repos <- get_repos(desc_path)
   expect_equal(repos[["cran"]], "https://cran.rstudio.com")
 })
+
+test_that("get_source_policy returns defaults and parses overrides", {
+  tmp_dir <- tempfile()
+  dir.create(tmp_dir)
+  desc_path <- file.path(tmp_dir, "DESCRIPTION")
+  on.exit(unlink(tmp_dir, recursive = TRUE))
+
+  writeLines("Package: testpkg", desc_path)
+  defaults <- get_source_policy(desc_path)
+  expect_equal(defaults$mode, "warn")
+  expect_true(defaults$allow$repository)
+  expect_false(defaults$allow$unknown)
+  expect_equal(defaults$exempt_packages, c("intent", "renv", "pak"))
+
+  writeLines(
+    c(
+      "Package: testpkg",
+      "Config/intent/source-policy/mode: error",
+      "Config/intent/source-policy/allow/github: false",
+      "Config/intent/source-policy/allow/local: true"
+    ),
+    desc_path
+  )
+
+  policy <- get_source_policy(desc_path)
+  expect_equal(policy$mode, "error")
+  expect_false(policy$allow$github)
+  expect_true(policy$allow$local)
+})

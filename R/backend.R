@@ -57,11 +57,16 @@ backend_remove <- function(project, pkgs) {
   renv::remove(pkgs, project = project, library = backend_library(project))
 }
 
-backend_snapshot <- function(project, repos = NULL, force = FALSE) {
+backend_snapshot <- function(
+  project,
+  repos = NULL,
+  force = FALSE,
+  lockfile = file.path(project, "renv.lock")
+) {
   sn_args <- list(
     project = project,
     library = backend_library(project),
-    lockfile = file.path(project, "renv.lock"),
+    lockfile = lockfile,
     dev = TRUE,
     prompt = FALSE,
     force = force
