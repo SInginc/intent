@@ -93,6 +93,8 @@ intent --help
 ```bash
 # Initialize a new project
 intent init my_project
+intent init my_project --yes
+intent init my_project --repo INTERNAL=https://r.example.com/packages/latest
 
 # Add dependencies
 intent add dplyr
@@ -190,7 +192,9 @@ The primary way to grow your project.
 
 * **Manifest Update:** Adds the specified package(s) to the `Imports` section of your `DESCRIPTION` (or `Suggests` when `dev = TRUE`).
 * **Fast Install:** Uses `pak` to resolve and install the packages into your local project library.
-* **Locking:** Automatically runs an `renv::snapshot()` to update your `renv.lock`.
+* **Locking:** Updates `renv.lock` through a policy-aware candidate lockfile,
+  so strict source policy can reject invalid provenance before replacing the
+  official lockfile.
 * **Dry Run:** Use `dry_run = TRUE` to preview planned actions without changing files.
 
 ### `intent::remove(pkgs, dry_run = FALSE)`
@@ -199,7 +203,8 @@ The clean-up tool.
 
 * Removes the package from the `DESCRIPTION` file.
 * Uninstalls the package from the local library.
-* Updates the `renv.lock` file and prunes orphan dependencies.
+* Updates the `renv.lock` file through the same source-policy checks and prunes
+  orphan dependencies.
 * **Dry Run:** Use `dry_run = TRUE` to preview without changing files.
 
 ### `intent::sync(dry_run = FALSE, prune = TRUE)`
@@ -208,6 +213,8 @@ Syncs `renv.lock` to match the `DESCRIPTION` file, then restores the local libra
 
 * Installs packages declared in `DESCRIPTION` but missing from the lockfile.
 * **Prune:** Removes packages from the lockfile that are no longer declared (on by default; disable with `prune = FALSE`).
+* **Source Policy:** Validates requested sources and candidate lockfiles before
+  replacing `renv.lock` in strict mode.
 * **Dry Run:** Use `dry_run = TRUE` to preview planned actions.
 * Ideal for use after editing `DESCRIPTION` or after `git pull`.
 
@@ -272,6 +279,92 @@ Config/intent/Imports/mypkg: myorg/mypkg@0.1.0@github
 
 ---
 
+## Repository & Source Policy
+
+`intent` treats `DESCRIPTION` as the project policy file. Repository
+configuration and source policy live under `Config/intent/`, so they are
+reviewable in code review and portable across machines.
+
+### Repositories
+
+Repositories are declared as named fields:
+
+```dcf
+Config/intent/repos/RSPM: https://packagemanager.posit.co/cran/latest
+Config/intent/repos/INTERNAL: https://r.example.com/packages/latest
+```
+
+When no repository is declared, `intent::init()` proposes Posit Package Manager
+as:
+
+```dcf
+Config/intent/repos/RSPM: https://packagemanager.posit.co/cran/latest
+```
+
+The repository name matters. If `renv.lock` records `Repository: RSPM`, the
+project must declare `Config/intent/repos/RSPM`. A different name such as
+`CRAN`, even with the same URL, is treated as different policy.
+
+### Source Policy
+
+Source policy controls which kinds of package sources are allowed:
+
+```dcf
+Config/intent/source-policy/mode: warn
+Config/intent/source-policy/allow/repository: true
+Config/intent/source-policy/allow/github: true
+Config/intent/source-policy/allow/bioc: true
+Config/intent/source-policy/allow/url: true
+Config/intent/source-policy/allow/local: true
+Config/intent/source-policy/allow/unknown: false
+```
+
+`mode` can be:
+
+| Mode | Behavior |
+|------|----------|
+| `off` | Do not check package source provenance. |
+| `warn` | Report source policy violations and continue. This is the default. |
+| `error` | Fail mutating commands before replacing the official `renv.lock`. |
+
+Source classes:
+
+| Source | Meaning |
+|--------|---------|
+| `repository` | CRAN-like repositories, including CRAN, PPM, R-universe, and self-hosted repositories. |
+| `github` | GitHub package references. |
+| `bioc` | Bioconductor package references. |
+| `url` | Direct URL package references. |
+| `local` | Local package paths. |
+| `unknown` | Lockfile records without enough source metadata. |
+
+`intent`, `renv`, and `pak` are tool packages and are exempt from source policy
+violations.
+
+### Strict Mode
+
+Projects that require tighter reproducibility can opt into strict policy:
+
+```dcf
+Config/intent/source-policy/mode: error
+Config/intent/source-policy/allow/repository: true
+Config/intent/source-policy/allow/github: false
+Config/intent/source-policy/allow/bioc: false
+Config/intent/source-policy/allow/url: false
+Config/intent/source-policy/allow/local: false
+Config/intent/source-policy/allow/unknown: false
+```
+
+In `error` mode, `intent::add()` and `intent::sync()` validate requested sources
+before installation when possible, then write a candidate lockfile and validate
+it before replacing the official `renv.lock`.
+
+Dependency overrides are checked against the same policy. For example, a GitHub
+override requires `Config/intent/source-policy/allow/github: true` unless policy
+checking is turned off.
+
+---
+
 ## Error Handling
 
 | Scenario | Error Message | Solution |
@@ -279,6 +372,8 @@ Config/intent/Imports/mypkg: myorg/mypkg@0.1.0@github
 | No `DESCRIPTION` file | `"No DESCRIPTION file found. Run intent::init() first."` | Run `intent::init()` to initialize the project |
 | No packages specified | `"No packages specified."` | Provide package names to `intent::add()` or `intent::remove()` |
 | Missing `renv` or `pak` | `"The following required packages are missing: ..."` | Install `renv` and `pak` first |
+| No repositories configured and defaults disabled | `"No repositories configured. Pass repos = ..."` | Pass `repos = c(NAME = "URL")`, use `intent init --repo NAME=URL`, or add `Config/intent/repos/` fields |
+| Source policy violation | `"Source policy violation..."` | Update `Config/intent/source-policy/*`, use an allowed package source, or declare the repository under `Config/intent/repos/` |
 
 ---
 
@@ -397,14 +492,13 @@ chosen package source.
 * **Logical Flow:**
 
 1. **Validation:** Check if `pkgs` are valid strings.
-2. **Manifest Update:** Use the `desc` package to append packages to the `DESCRIPTION` file.
-3. **Installation:** Call `renv::install()` with `pak` enabled via `RENV_CONFIG_PAK_ENABLED`.
+2. **Source Preflight:** Check requested package references and dependency
+   overrides against source policy.
+3. **Manifest Update:** Use the `desc` package to append packages to the `DESCRIPTION` file.
+4. **Installation:** Install packages through the backend with `pak`.
 
-   * *Note:* When `pak` is enabled, `renv` uses it for speed and dependency resolution.
-
-4. **Locking:** Call `renv::snapshot(prompt = FALSE, dev = TRUE)` to capture both `Imports` and `Suggests`.
-
-   * Because we are in "explicit" mode, `renv` looks at `DESCRIPTION`, sees the new package, and writes its version/hash into `renv.lock`.
+5. **Locking:** Snapshot to a candidate lockfile, validate source provenance,
+   then replace the official `renv.lock` only if policy allows it.
 
 * **Exit State:** Package is in `DESCRIPTION`, installed in `renv/library`, and recorded in `renv.lock`.
 
@@ -422,9 +516,8 @@ chosen package source.
 
 1. **Manifest Update:** Remove packages from `DESCRIPTION` using `desc::desc_del_dep()`.
 2. **Cleanup:** Call `renv::remove(pkgs)`. This deletes the files from the project-local library.
-3. **Locking:** Call `renv::snapshot(prompt = FALSE, dev = TRUE)`.
-
-   * `renv` sees the package is gone from `DESCRIPTION` and removes it (and its unused dependencies) from `renv.lock`.
+3. **Locking:** Snapshot to a candidate lockfile, validate source provenance,
+   then replace the official `renv.lock` only if policy allows it.
 
 * **Exit State:** Package and its orphans are removed from the disk and the lockfile.
 
@@ -444,9 +537,12 @@ chosen package source.
 1. **Comparison:** Compare `DESCRIPTION` against the current contents of `renv.lock`:
     * What packages are in `DESCRIPTION` but not in `renv.lock`?
     * What packages are in `renv.lock` but not in `DESCRIPTION`?
-2. Install missing dependencies.
-3. Remove extra dependencies (when `prune = TRUE`).
-4. Restore the library from the updated lockfile.
+2. Preflight requested sources and overrides against source policy.
+3. Install missing dependencies.
+4. Remove true orphan dependencies (when `prune = TRUE`), preserving transitive
+   dependencies reachable from declared packages.
+5. Snapshot to a candidate lockfile and validate source provenance.
+6. Restore the library from the updated lockfile.
 
 * **Exit State:** The local environment is a perfect binary mirror of the `renv.lock` file.
 
@@ -464,7 +560,9 @@ chosen package source.
 1. Read declared packages from `DESCRIPTION`.
 2. Read locked packages from `renv.lock`.
 3. Read installed packages from the project library.
-4. Report differences between the three sources of truth.
+4. Read repository and source policy from `Config/intent/`.
+5. Report differences between the three sources of truth.
+6. Report source policy violations.
 
 * **Exit State:** No files or packages are changed. Returns an `intent_status`
   object. Use `as.character(status())` or `intent status --json` for
