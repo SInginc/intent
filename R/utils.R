@@ -248,7 +248,9 @@ intent_snapshot <- function(project, force = TRUE) {
 
   backend_snapshot(project, repos, force = force, lockfile = candidate)
   lock <- renv::lockfile_read(candidate)
+  lock$R$Repositories <- repos
   intent_enforce_source_policy(project, lock, repos)
+  renv::lockfile_write(lock, file = candidate, project = project)
   file.copy(candidate, lockfile, overwrite = TRUE)
   invisible(lockfile)
 }
