@@ -17,7 +17,7 @@ test_that("intent::add and intent::remove work as expected", {
   )
 
   # Initialize
-  pkg_to_test <- "desc"
+  pkg_to_test <- "dplyr"
   init(
     path = tmp_dir,
     repos = c(CRAN = "https://packagemanager.posit.co/cran/latest")
@@ -90,7 +90,7 @@ test_that("intent::add and intent::remove work as expected", {
   lock <- renv::lockfile_read(file.path(tmp_dir, "renv.lock"))
   expect_false(pkg_to_test %in% names(lock$Packages))
 
-  # Check Zombie (R6 should be removed as it is a specific dependency of desc)
-  # desc depends on R6. If desc is removed, R6 should be gone.
-  expect_false("R6" %in% names(lock$Packages))
+  # Check Zombie (tibble should be removed as it is a specific dependency of dplyr)
+  # dplyr depends on tibble. If dplyr is removed, tibble should be gone.
+  expect_false("tibble" %in% names(lock$Packages))
 })

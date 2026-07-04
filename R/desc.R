@@ -99,6 +99,80 @@ get_repos <- function(
   repos
 }
 
+intent_default_source_policy <- function() {
+  list(
+    mode = "warn",
+    allow = list(
+      repository = TRUE,
+      github = TRUE,
+      bioc = TRUE,
+      url = TRUE,
+      local = TRUE,
+      unknown = FALSE
+    ),
+    exempt_packages = c("intent", "renv", "pak")
+  )
+}
+
+get_source_policy <- function(
+  path_to_description = file.path(getwd(), "DESCRIPTION")
+) {
+  defaults <- intent_default_source_policy()
+  config <- tryCatch(
+    read_intent_config(
+      path_to_description = path_to_description,
+      permissive = "source-policy"
+    ),
+    error = function(e) list()
+  )
+
+  source_policy <- config[["source-policy"]]
+  if (is.null(source_policy)) {
+    return(defaults)
+  }
+
+  mode <- source_policy[["mode"]] %||% defaults$mode
+  if (!mode %in% c("off", "warn", "error")) {
+    stop(
+      "Invalid source policy mode: ",
+      mode,
+      ". Expected one of off, warn, or error.",
+      call. = FALSE
+    )
+  }
+
+  allow <- defaults$allow
+  for (name in names(allow)) {
+    key <- paste0("allow/", name)
+    if (!is.null(source_policy[[key]])) {
+      allow[[name]] <- parse_config_bool(source_policy[[key]], key)
+    }
+  }
+
+  list(
+    mode = mode,
+    allow = allow,
+    exempt_packages = defaults$exempt_packages
+  )
+}
+
+parse_config_bool <- function(value, field) {
+  normalized <- tolower(trimws(value))
+  if (normalized %in% c("true", "yes", "1")) {
+    return(TRUE)
+  }
+  if (normalized %in% c("false", "no", "0")) {
+    return(FALSE)
+  }
+  stop(
+    "Invalid boolean value for Config/intent/source-policy/",
+    field,
+    ": ",
+    value,
+    call. = FALSE
+  )
+}
+
 
 #' Read dependency overrides from DESCRIPTION
 #'
@@ -174,10 +248,13 @@ parse_override <- function(override_str) {
     # URL source
     repo <- src
     ref <- sprintf("%s@%s", pkg_name, ver)
+    source_class <- "repository"
   } else if (src %in% c("cran", "standard")) {
     ref <- sprintf("%s@%s", pkg_name, ver)
+    source_class <- "repository"
   } else if (src %in% c("github", "bioc", "local", "url")) {
     ref <- sprintf("%s::%s@%s", src, pkg, ver)
+    source_class <- src
   } else {
     stop(sprintf(
       "Invalid override source: %s. Supported sources are cran, standard, github, bioc, local, url, or an http(s) repository URL",
@@ -185,5 +262,12 @@ parse_override <- function(override_str) {
     ))
   }
 
-  list(package = pkg_name, version = ver, ref = ref, repo = repo)
+  list(
+    package = pkg_name,
+    version = ver,
+    ref = ref,
+    repo = repo,
+    source = src,
+    source_class = source_class
+  )
 }

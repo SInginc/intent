@@ -153,6 +153,44 @@ test_that("cmd_sync prune=FALSE preserves extra lockfile packages", {
   expect_error(cmd_sync(project = tmp_dir, prune = FALSE), NA)
 })
 
+test_that("cmd_sync prune preserves transitive dependencies", {
+  tmp_dir <- tempfile()
+  dir.create(tmp_dir)
+  on.exit(unlink(tmp_dir, recursive = TRUE))
+
+  writeLines(
+    c(
+      "Package: testpkg",
+      "Imports:",
+      "    glue"
+    ),
+    file.path(tmp_dir, "DESCRIPTION")
+  )
+  writeLines("{}", file.path(tmp_dir, "renv.lock"))
+
+  mockery::stub(cmd_sync, "backend_read_lockfile", function(project) {
+    list(
+      Packages = list(
+        glue = list(Version = "1.0.0", Imports = list("rlang")),
+        rlang = list(Version = "2.0.0"),
+        orphan = list(Version = "3.0.0")
+      )
+    )
+  })
+  mockery::stub(cmd_sync, "intent_install", function(project, pkgs) NULL)
+  mockery::stub(cmd_sync, "intent_snapshot", function(project) NULL)
+  mockery::stub(cmd_sync, "intent_restore", function(project) NULL)
+
+  removed <- NULL
+  mockery::stub(cmd_sync, "backend_remove", function(project, pkgs) {
+    removed <<- pkgs
+  })
+
+  cmd_sync(project = tmp_dir, prune = TRUE)
+
+  expect_equal(removed, "orphan")
+})
+
 test_that("cmd_sync dry-run reports prune actions", {
   tmp_dir <- tempfile()
   lib_dir <- tempfile()

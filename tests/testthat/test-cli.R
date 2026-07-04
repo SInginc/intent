@@ -67,14 +67,79 @@ test_that("cli dispatches remove", {
 
 test_that("cli dispatches init repos", {
   called <- NULL
-  mockery::stub(cli_init, "cmd_init", function(path, repos) {
-    called <<- list(path = path, repos = repos)
-  })
+  mockery::stub(
+    cli_init,
+    "cmd_init",
+    function(path, repos, confirm_repos, use_default_repo) {
+      called <<- list(
+        path = path,
+        repos = repos,
+        confirm_repos = confirm_repos,
+        use_default_repo = use_default_repo
+      )
+    }
+  )
 
-  cli_init(c("proj", "--repo", "CRAN=https://example.test"))
+  cli_init(c("proj", "--repo", "CRAN=https://example.test", "--yes"))
 
   expect_equal(called$path, "proj")
   expect_equal(called$repos[["CRAN"]], "https://example.test")
+  expect_false(called$confirm_repos)
+  expect_true(called$use_default_repo)
+})
+
+test_that("cli dispatches init without default repo", {
+  called <- NULL
+  mockery::stub(
+    cli_init,
+    "cmd_init",
+    function(path, repos, confirm_repos, use_default_repo) {
+      called <<- list(
+        path = path,
+        repos = repos,
+        confirm_repos = confirm_repos,
+        use_default_repo = use_default_repo
+      )
+    }
+  )
+
+  cli_init(c("proj", "--no-default-repo"))
+
+  expect_equal(called$path, "proj")
+  expect_null(called$repos)
+  expect_false(called$use_default_repo)
+})
+
+test_that("cli_collect_repos parses init automation flags", {
+  parsed <- cli_collect_repos(c(
+    "--repo",
+    "CRAN=https://example.test",
+    "--yes",
+    "--no-default-repo",
+    "proj"
+  ))
+
+  expect_equal(parsed$args, "proj")
+  expect_equal(parsed$repos[["CRAN"]], "https://example.test")
+  expect_true(parsed$yes)
+  expect_true(parsed$no_default_repo)
+})
+
+test_that("cmd_init can reject implicit default repository", {
+  tmp_dir <- tempfile()
+  dir.create(tmp_dir)
+  on.exit(unlink(tmp_dir, recursive = TRUE))
+
+  expect_error(
+    cmd_init(
+      path = tmp_dir,
+      repos = NULL,
+      install_self = "never",
+      confirm_repos = FALSE,
+      use_default_repo = FALSE
+    ),
+    "No repositories configured"
+  )
 })
 
 test_that("cli reports invalid input", {
@@ -114,4 +179,6 @@ test_that("cli_print_help includes all commands and flags", {
   expect_match(text, "--dev")
   expect_match(text, "--no-prune")
   expect_match(text, "--repo")
+  expect_match(text, "--yes")
+  expect_match(text, "--no-default-repo")
 })

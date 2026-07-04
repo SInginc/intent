@@ -1,4 +1,8 @@
 design
+sandbox/test-project/
+sandbox/bootstrap-library/
+sandbox/*/renv/
+sandbox/*/renv.lock
 
 renv
 renv.lock

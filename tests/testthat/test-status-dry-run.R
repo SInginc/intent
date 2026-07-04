@@ -33,6 +33,48 @@ test_that("cmd_status reports manifest, lockfile, and library drift", {
   expect_equal(current_status$missing_from_lockfile, "R6")
   expect_equal(current_status$extra_in_lockfile, "rlang")
   expect_equal(current_status$missing_from_library, "rlang")
+  expect_equal(nrow(current_status$source_violations), 0)
+})
+
+test_that("source policy flags repository name mismatches", {
+  lock <- list(
+    Packages = list(
+      glue = list(
+        Version = "1.0.0",
+        Source = "Repository",
+        Repository = "RSPM"
+      )
+    )
+  )
+  policy <- intent_default_source_policy()
+
+  violations <- intent_check_source_policy(
+    lock,
+    repos = c(CRAN = "https://packagemanager.posit.co/cran/latest"),
+    source_policy = policy
+  )
+
+  expect_equal(violations$package, "glue")
+  expect_match(violations$reason, "RSPM")
+})
+
+test_that("source policy exempts tool packages", {
+  lock <- list(
+    Packages = list(
+      intent = list(Version = "0.0.1", Source = "unknown"),
+      renv = list(Version = "1.0.0", Source = "unknown"),
+      pak = list(Version = "1.0.0", Source = "unknown")
+    )
+  )
+  policy <- intent_default_source_policy()
+
+  violations <- intent_check_source_policy(
+    lock,
+    repos = character(),
+    source_policy = policy
+  )
+
+  expect_equal(nrow(violations), 0)
 })
 
 test_that("status delegates to command layer", {
@@ -165,6 +207,20 @@ test_that("as.character.intent_status returns valid JSON", {
   expect_equal(parsed$manifest_packages, c("dplyr", "glue"))
   expect_length(parsed$missing_from_lockfile, 0)
   expect_equal(parsed$extra_in_lockfile, "R6")
+  expect_named(
+    parsed,
+    c(
+      "project",
+      "manifest_packages",
+      "locked_packages",
+      "missing_from_lockfile",
+      "extra_in_lockfile",
+      "library_path",
+      "missing_from_library",
+      "source_policy",
+      "source_violations"
+    )
+  )
 })
 
 test_that("as.character.intent_plan returns valid JSON", {

@@ -1,4 +1,12 @@
-cmd_init <- function(path = ".", repos = NULL) {
+cmd_init <- function(
+  path = ".",
+  repos = NULL,
+  install_self = "hydrate",
+  confirm_repos = interactive(),
+  use_default_repo = TRUE
+) {
+  install_self <- match.arg(install_self, c("hydrate", "never"))
+  bootstrap_sources <- .libPaths()
   project_dir <- normalizePath(path, mustWork = FALSE)
 
   if (!dir.exists(path)) {
@@ -52,7 +60,17 @@ cmd_init <- function(path = ".", repos = NULL) {
   } else if (has_repos && (is.null(repos) || length(repos) == 0)) {
     repos <- get_repos(desc_path)
   } else if (!has_repos && (is.null(repos) || length(repos) == 0)) {
-    repos <- c(CRAN = "https://packagemanager.posit.co/cran/latest")
+    if (!isTRUE(use_default_repo)) {
+      stop(
+        "No repositories configured. Pass `repos =` or add ",
+        "`Config/intent/repos/` fields to DESCRIPTION.",
+        call. = FALSE
+      )
+    }
+    repos <- confirm_default_repos(
+      c(RSPM = "https://packagemanager.posit.co/cran/latest"),
+      confirm_repos = confirm_repos
+    )
     for (i in seq_along(repos)) {
       rproject$set(
         sprintf("Config/intent/repos/%s", names(repos)[[i]]),
@@ -65,7 +83,9 @@ cmd_init <- function(path = ".", repos = NULL) {
 
   if (!dir.exists(file.path(project_dir, "renv"))) {
     backend_init(project_dir, repos)
+    maybe_hydrate_intent(project_dir, bootstrap_sources, install_self)
   } else {
+    maybe_hydrate_intent(project_dir, bootstrap_sources, install_self)
     intent_sync_project(project_dir)
   }
 
@@ -89,6 +109,62 @@ cmd_init <- function(path = ".", repos = NULL) {
   message("intent project initialized successfully in ", project_dir)
   message("Please restart your R session for changes to take effect.")
   invisible(project_dir)
+}
+
+confirm_default_repos <- function(repos, confirm_repos) {
+  message(
+    "No repositories configured. Proposed default repository: ",
+    paste(sprintf("%s=%s", names(repos), repos), collapse = ", ")
+  )
+
+  if (!isTRUE(confirm_repos)) {
+    message(
+      "Using default repository. Pass `repos = c(NAME = 'URL')` or edit ",
+      "`Config/intent/repos/` in DESCRIPTION to declare project repositories."
+    )
+    return(repos)
+  }
+
+  answer <- readline("Use this repository? [Y/n]: ")
+  if (tolower(trimws(answer)) %in% c("", "y", "yes")) {
+    return(repos)
+  }
+
+  stop(
+    "Repository configuration cancelled. Pass `repos =` to declare project ",
+    "repositories explicitly.",
+    call. = FALSE
+  )
+}
+
+maybe_hydrate_intent <- function(project, sources, install_self) {
+  if (!identical(install_self, "hydrate")) {
+    return(invisible(FALSE))
+  }
+
+  result <- tryCatch(
+    backend_hydrate(project, "intent", sources = sources),
+    error = function(e) e
+  )
+
+  intent_path <- file.path(backend_library(project), "intent")
+  if (dir.exists(intent_path)) {
+    intent_snapshot(project, force = TRUE)
+    message("Hydrated intent into the project library.")
+    return(invisible(TRUE))
+  }
+
+  message(
+    "intent was not found in the current library paths and was not installed ",
+    "into the project library. After restarting R inside this renv project, ",
+    "install intent into the project library or use an external intent CLI."
+  )
+
+  if (inherits(result, "error")) {
+    message("Hydration detail: ", conditionMessage(result))
+  }
+
+  invisible(FALSE)
 }
 
 cmd_add <- function(pkgs, dev = FALSE, project = NULL, dry_run = FALSE) {
@@ -205,8 +281,11 @@ cmd_sync <- function(project = NULL, dry_run = FALSE, prune = TRUE) {
       }
     }
     missing_pkgs <- unique(missing_pkgs)
-    extra_pkgs <- setdiff(lock_pkgs, intent_pkgs)
-    extra_pkgs <- extra_pkgs[!extra_pkgs %in% c("intent", "pak", "renv")]
+    retained_pkgs <- intent_lock_dependency_closure(
+      lock,
+      roots = c(intent_pkgs, "intent", "pak", "renv")
+    )
+    extra_pkgs <- setdiff(lock_pkgs, retained_pkgs)
   } else {
     missing_pkgs <- intent_pkgs
     extra_pkgs <- character()
@@ -273,6 +352,16 @@ cmd_status <- function(project = NULL) {
   locked_packages <- intent_locked_packages(project)
   library_path <- backend_library(project)
   library_packages <- intent_library_packages(project)
+  repos <- load_intent_repos(project)
+  source_policy <- get_source_policy(file.path(project, "DESCRIPTION"))
+  source_violations <- intent_source_violations_empty()
+  if (file.exists(file.path(project, "renv.lock"))) {
+    source_violations <- intent_check_source_policy(
+      backend_read_lockfile(project),
+      repos = repos,
+      source_policy = source_policy
+    )
+  }
 
   new_intent_status(
     project = project,
@@ -281,6 +370,8 @@ cmd_status <- function(project = NULL) {
     missing_from_lockfile = setdiff(manifest_packages, locked_packages),
     extra_in_lockfile = setdiff(locked_packages, manifest_packages),
     library_path = library_path,
-    missing_from_library = setdiff(locked_packages, library_packages)
+    missing_from_library = setdiff(locked_packages, library_packages),
+    source_policy = source_policy,
+    source_violations = source_violations
   )
 }

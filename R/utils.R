@@ -100,6 +100,7 @@ intent_install <- function(project, pkgs) {
   }
 
   repos <- load_intent_repos(project, more_repos = overrides_info$extra_repos)
+  intent_preflight_package_sources(project, pkgs, overrides_info, repos)
 
   # Apply overrides to pkgs
   resolved_pkgs <- vapply(
@@ -117,16 +118,179 @@ intent_install <- function(project, pkgs) {
   backend_install(project, resolved_pkgs, repos)
 }
 
+intent_preflight_package_sources <- function(
+  project,
+  pkgs,
+  overrides_info,
+  repos
+) {
+  source_policy <- get_source_policy(file.path(project, "DESCRIPTION"))
+  if (identical(source_policy$mode, "off")) {
+    return(invisible(TRUE))
+  }
+
+  violations <- intent_source_violations_empty()
+  for (pkg in pkgs) {
+    pkg_name <- extract_pkg_name(pkg)
+    override <- overrides_info$overrides[[pkg_name]]
+
+    if (!is.null(override)) {
+      violations <- rbind(
+        violations,
+        intent_check_requested_source(
+          project,
+          pkg_name,
+          override,
+          repos,
+          source_policy
+        )
+      )
+    } else {
+      source_class <- intent_package_ref_source_class(pkg)
+      if (!isTRUE(source_policy$allow[[source_class]])) {
+        violations <- rbind(
+          violations,
+          intent_source_violation(
+            pkg_name,
+            source_class,
+            NA_character_,
+            sprintf("source class '%s' is not allowed", source_class)
+          )
+        )
+      }
+    }
+  }
+
+  if (nrow(violations) == 0) {
+    return(invisible(TRUE))
+  }
+
+  message(format_source_policy_violations(violations))
+  if (identical(source_policy$mode, "error")) {
+    stop(
+      "Source policy violation. Package installation was not started.",
+      call. = FALSE
+    )
+  }
+
+  invisible(TRUE)
+}
+
+intent_check_requested_source <- function(
+  project,
+  pkg,
+  override,
+  repos,
+  source_policy
+) {
+  source_class <- override$source_class
+  if (!isTRUE(source_policy$allow[[source_class]])) {
+    return(intent_source_violation(
+      pkg,
+      source_class,
+      NA_character_,
+      sprintf("source class '%s' is not allowed", source_class)
+    ))
+  }
+
+  if (!is.null(override$repo)) {
+    repo_name <- paste0("override_", pkg)
+    if (
+      !repo_name %in% names(load_intent_repos(project)) ||
+        !identical(
+          normalize_repo_url(load_intent_repos(project)[[repo_name]]),
+          normalize_repo_url(override$repo)
+        )
+    ) {
+      return(intent_source_violation(
+        pkg,
+        "repository",
+        repo_name,
+        sprintf(
+          "repository '%s' is not declared in Config/intent/repos",
+          repo_name
+        )
+      ))
+    }
+  }
+
+  intent_source_violations_empty()
+}
+
+intent_package_ref_source_class <- function(pkg) {
+  if (grepl("^https?://", pkg)) {
+    return("url")
+  }
+  if (grepl("^github::", pkg)) {
+    return("github")
+  }
+  if (grepl("^bioc::", pkg)) {
+    return("bioc")
+  }
+  if (grepl("^local::", pkg)) {
+    return("local")
+  }
+  if (grepl("^url::", pkg)) {
+    return("url")
+  }
+  if (grepl("/", pkg, fixed = TRUE)) {
+    return("github")
+  }
+  "repository"
+}
+
 #' @keywords internal
-intent_snapshot <- function(project) {
+intent_snapshot <- function(project, force = TRUE) {
   repos <- load_intent_repos(project)
-  backend_snapshot(project, repos)
+  lockfile <- file.path(project, "renv.lock")
+  candidate <- tempfile("renv-policy-", tmpdir = project, fileext = ".lock")
+  on.exit(unlink(candidate), add = TRUE)
+
+  backend_snapshot(project, repos, force = force, lockfile = candidate)
+  lock <- renv::lockfile_read(candidate)
+  lock$R$Repositories <- repos
+  intent_enforce_source_policy(project, lock, repos)
+  renv::lockfile_write(lock, file = candidate, project = project)
+  file.copy(candidate, lockfile, overwrite = TRUE)
+  invisible(lockfile)
 }
 
 #' @keywords internal
 intent_restore <- function(project) {
   repos <- load_intent_repos(project)
   backend_restore(project, repos)
+}
+
+intent_enforce_source_policy <- function(
+  project,
+  lock,
+  repos = load_intent_repos(project)
+) {
+  source_policy <- get_source_policy(file.path(project, "DESCRIPTION"))
+  violations <- intent_check_source_policy(lock, repos, source_policy)
+
+  if (nrow(violations) == 0 || identical(source_policy$mode, "off")) {
+    return(invisible(violations))
+  }
+
+  message(format_source_policy_violations(violations))
+
+  if (identical(source_policy$mode, "error")) {
+    stop(
+      "Source policy violation. The official renv.lock was not updated.",
+      call. = FALSE
+    )
+  }
+
+  invisible(violations)
+}
+
+format_source_policy_violations <- function(violations) {
+  lines <- c(
+    sprintf("Source policy violations: %d", nrow(violations)),
+    sprintf("  - %s: %s", violations$package, violations$reason)
+  )
+  paste(lines, collapse = "\n")
 }
 
 #' @keywords internal
@@ -158,7 +322,7 @@ intent_get_project_deps <- function(project) {
 
 #' @keywords internal
 intent_sync_project <- function(project) {
+  intent_snapshot(project)
   repos <- load_intent_repos(project)
-  backend_snapshot(project, repos)
   backend_restore(project, repos)
 }

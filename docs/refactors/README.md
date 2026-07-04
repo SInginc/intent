@@ -50,3 +50,6 @@ plan, and updated after implementation with the actual result.
 - [014 CLI Design Document Update](014-cli-design-doc-update.md)
 - [015 Layering Cleanup](015-layering-cleanup.md)
 - [016 Testing Plan and Coverage Analysis](016-testing-plan.md)
+- [017 Intent Bootstrap Lifecycle](017-intent-bootstrap-lifecycle.md)
+- [018 Repository Policy](018-repository-policy.md)
+- [019 CI Platform Failures on macOS ARM64](019-ci-platform-failures.md)

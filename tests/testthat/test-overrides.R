@@ -94,7 +94,8 @@ test_that("intent_install applies overrides", {
           package = "glue",
           version = "1.6.0",
           ref = "glue@1.6.0",
-          repo = NULL
+          repo = NULL,
+          source_class = "repository"
         )
       ),
       extra_repos = character()
@@ -115,6 +116,11 @@ test_that("intent_install applies overrides", {
     }
   )
   mockery::stub(intent_install, "file.exists", function(...) TRUE)
+  mockery::stub(
+    intent_install,
+    "intent_preflight_package_sources",
+    function(...) TRUE
+  )
 
   intent_install(".", "glue")
   expect_equal(unname(installed_pkgs), "glue@1.6.0")

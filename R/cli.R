@@ -32,7 +32,12 @@ cli_init <- function(args) {
     path <- parsed$args
   }
 
-  cmd_init(path = path, repos = parsed$repos)
+  cmd_init(
+    path = path,
+    repos = parsed$repos,
+    confirm_repos = !parsed$yes && interactive(),
+    use_default_repo = !parsed$no_default_repo
+  )
 }
 
 cli_add <- function(args) {
@@ -147,6 +152,8 @@ cli_parse_common <- function(args) {
 cli_collect_repos <- function(args) {
   repos <- character()
   rest <- character()
+  yes <- FALSE
+  no_default_repo <- FALSE
   i <- 1
 
   while (i <= length(args)) {
@@ -158,6 +165,12 @@ cli_collect_repos <- function(args) {
       repo <- cli_parse_repo(args[[i + 1]])
       repos[names(repo)] <- repo
       i <- i + 2
+    } else if (identical(arg, "--yes")) {
+      yes <- TRUE
+      i <- i + 1
+    } else if (identical(arg, "--no-default-repo")) {
+      no_default_repo <- TRUE
+      i <- i + 1
     } else if (startsWith(arg, "--")) {
       stop("Unknown option: ", arg, call. = FALSE)
     } else {
@@ -168,7 +181,9 @@ cli_collect_repos <- function(args) {
 
   list(
     args = rest,
-    repos = if (length(repos) == 0) NULL else repos
+    repos = if (length(repos) == 0) NULL else repos,
+    yes = yes,
+    no_default_repo = no_default_repo
   )
 }
 
@@ -187,7 +202,7 @@ cli_print_help <- function() {
   cat(
     paste(
       "Usage:",
-      "  intent init [path] [--repo NAME=URL]",
+      "  intent init [path] [--repo NAME=URL] [--yes] [--no-default-repo]",
       "  intent add [--project path] [--dev] [--dry-run] <package>...",
       "  intent remove [--project path] [--dry-run] <package>...",
       "  intent sync [--project path] [--dry-run] [--json] [--no-prune]",
