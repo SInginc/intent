@@ -51,3 +51,4 @@ plan, and updated after implementation with the actual result.
 - [015 Layering Cleanup](015-layering-cleanup.md)
 - [016 Testing Plan and Coverage Analysis](016-testing-plan.md)
 - [017 Intent Bootstrap Lifecycle](017-intent-bootstrap-lifecycle.md)
+- [018 Repository Policy](018-repository-policy.md)
