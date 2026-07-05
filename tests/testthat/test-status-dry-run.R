@@ -36,13 +36,14 @@ test_that("cmd_status reports manifest, lockfile, and library drift", {
   expect_equal(nrow(current_status$source_violations), 0)
 })
 
-test_that("source policy flags repository name mismatches", {
+test_that("source policy accepts undeclared name via URL matching", {
   lock <- list(
     Packages = list(
       glue = list(
         Version = "1.0.0",
         Source = "Repository",
-        Repository = "RSPM"
+        Repository = "RSPM",
+        RepositoryURL = "https://packagemanager.posit.co/cran/latest"
       )
     )
   )
@@ -54,8 +55,51 @@ test_that("source policy flags repository name mismatches", {
     source_policy = policy
   )
 
-  expect_equal(violations$package, "glue")
-  expect_match(violations$reason, "RSPM")
+  expect_equal(nrow(violations), 0)
+})
+
+test_that("source policy flags truly unknown repository names", {
+  lock <- list(
+    Packages = list(
+      pkg = list(
+        Version = "1.0.0",
+        Source = "Repository",
+        Repository = "UnknownRepo"
+      )
+    )
+  )
+  policy <- intent_default_source_policy()
+
+  violations <- intent_check_source_policy(
+    lock,
+    repos = c(CRAN = "https://cran.r-project.org"),
+    source_policy = policy
+  )
+
+  expect_equal(nrow(violations), 1)
+  expect_equal(violations$package, "pkg")
+  expect_match(violations$reason, "UnknownRepo")
+})
+
+test_that("source policy handles old renv URL-based Repository field", {
+  lock <- list(
+    Packages = list(
+      pkg = list(
+        Version = "1.0.0",
+        Source = "Repository",
+        Repository = "https://cran.r-project.org"
+      )
+    )
+  )
+  policy <- intent_default_source_policy()
+
+  violations <- intent_check_source_policy(
+    lock,
+    repos = c(CRAN = "https://cran.r-project.org"),
+    source_policy = policy
+  )
+
+  expect_equal(nrow(violations), 0)
 })
 
 test_that("source policy exempts tool packages", {
@@ -140,10 +184,27 @@ test_that("cmd_verify reports missing lockfile", {
   )
 })
 
-test_that("verify flags repository mismatches", {
+test_that("verify accepts same-URL repos with different names", {
   lock <- list(
     R = list(
-      Repositories = c(CRAN = "https://packagemanager.posit.co/cran/latest")
+      Repositories = c(RSPM = "https://packagemanager.posit.co/cran/latest")
+    )
+  )
+
+  issues <- intent_verify_repository_issues(
+    lock,
+    repos = c(CRAN = "https://packagemanager.posit.co/cran/latest")
+  )
+
+  # Same URL, different names — not a violation
+  expect_false(any(grepl("missing repositories", issues$message)))
+  expect_false(any(grepl("not declared", issues$message)))
+})
+
+test_that("verify flags truly different repository URLs", {
+  lock <- list(
+    R = list(
+      Repositories = c(CRAN = "https://cran.r-project.org")
     )
   )
 
@@ -152,6 +213,7 @@ test_that("verify flags repository mismatches", {
     repos = c(RSPM = "https://packagemanager.posit.co/cran/latest")
   )
 
+  # Different URLs — real issues
   expect_true(any(grepl("missing repositories", issues$message)))
   expect_true(any(grepl("not declared", issues$message)))
 })
@@ -297,7 +359,10 @@ test_that("as.character.intent_status returns valid JSON", {
       "library_path",
       "missing_from_library",
       "source_policy",
-      "source_violations"
+      "source_violations",
+      "r_version",
+      "r_constraint",
+      "lockfile_r_version"
     )
   )
 })
@@ -345,4 +410,153 @@ test_that("as.character.intent_verification returns valid JSON", {
   expect_false(parsed$ok)
   expect_equal(parsed$issues$check, "lockfile")
   expect_equal(parsed$status$missing_from_lockfile, "glue")
+})
+
+test_that("intent_supplement_repositories appends undeclared name via record URL", {
+  lock <- list(
+    R = list(
+      Repositories = c(CRAN = "https://packagemanager.posit.co/cran/latest")
+    ),
+    Packages = list(
+      dplyr = list(
+        Version = "1.0.0",
+        Repository = "RSPM",
+        RepositoryURL = "https://packagemanager.posit.co/cran/latest"
+      )
+    )
+  )
+
+  result <- intent_supplement_repositories(
+    lock,
+    repos = c(CRAN = "https://packagemanager.posit.co/cran/latest")
+  )
+
+  expect_true("CRAN" %in% names(result$R$Repositories))
+  expect_true("RSPM" %in% names(result$R$Repositories))
+  expect_equal(
+    result$R$Repositories[["RSPM"]],
+    "https://packagemanager.posit.co/cran/latest"
+  )
+})
+
+test_that("intent_supplement_repositories skips URL-type Repository fields", {
+  lock <- list(
+    R = list(
+      Repositories = c(CRAN = "https://cran.r-project.org")
+    ),
+    Packages = list(
+      pkg = list(
+        Version = "1.0.0",
+        Repository = "https://cran.r-project.org"
+      )
+    )
+  )
+
+  result <- intent_supplement_repositories(
+    lock,
+    repos = c(CRAN = "https://cran.r-project.org")
+  )
+
+  # No supplementation — URL-type is skipped
+  expect_equal(names(result$R$Repositories), "CRAN")
+})
+
+test_that("intent_supplement_repositories messages on undeclared known name", {
+  lock <- list(
+    R = list(
+      Repositories = c(CRAN = "https://packagemanager.posit.co/cran/latest")
+    ),
+    Packages = list(
+      dplyr = list(
+        Version = "1.0.0",
+        Repository = "RSPM"
+        # No RepositoryURL — can't resolve via URL, must message user
+      )
+    )
+  )
+
+  expect_message(
+    result <- intent_supplement_repositories(
+      lock,
+      repos = c(CRAN = "https://packagemanager.posit.co/cran/latest")
+    ),
+    "RSPM"
+  )
+
+  # RSPM is NOT silently supplemented
+  expect_false("RSPM" %in% names(result$R$Repositories))
+})
+
+test_that("intent_supplement_repositories is no-op when name already present", {
+  lock <- list(
+    R = list(
+      Repositories = c(RSPM = "https://packagemanager.posit.co/cran/latest")
+    ),
+    Packages = list(
+      dplyr = list(
+        Version = "1.0.0",
+        Repository = "RSPM"
+      )
+    )
+  )
+
+  result <- intent_supplement_repositories(
+    lock,
+    repos = c(RSPM = "https://packagemanager.posit.co/cran/latest")
+  )
+
+  expect_equal(names(result$R$Repositories), "RSPM")
+})
+
+test_that("intent_check_repository_policy resolves undeclared name via URL", {
+  row <- data.frame(
+    repository = "RSPM",
+    repository_url = "https://packagemanager.posit.co/cran/latest",
+    package = "dplyr",
+    source = "repository",
+    stringsAsFactors = FALSE
+  )
+
+  violations <- intent_check_repository_policy(
+    row,
+    repos = c(CRAN = "https://packagemanager.posit.co/cran/latest")
+  )
+
+  expect_equal(nrow(violations), 0)
+})
+
+test_that("intent_check_repository_policy flags undeclared name with mismatched URL", {
+  row <- data.frame(
+    repository = "RSPM",
+    repository_url = "https://some-other-server.example.com",
+    package = "dplyr",
+    source = "repository",
+    stringsAsFactors = FALSE
+  )
+
+  violations <- intent_check_repository_policy(
+    row,
+    repos = c(CRAN = "https://packagemanager.posit.co/cran/latest")
+  )
+
+  expect_equal(nrow(violations), 1)
+  expect_match(violations$reason, "URL does not match")
+})
+
+test_that("intent_check_repository_policy flags undeclared name without repository_url", {
+  row <- data.frame(
+    repository = "UnknownRepo",
+    repository_url = NA_character_,
+    package = "pkg",
+    source = "repository",
+    stringsAsFactors = FALSE
+  )
+
+  violations <- intent_check_repository_policy(
+    row,
+    repos = c(CRAN = "https://cran.r-project.org")
+  )
+
+  expect_equal(nrow(violations), 1)
+  expect_match(violations$reason, "not declared")
 })

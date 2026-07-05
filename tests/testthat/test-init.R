@@ -1,18 +1,18 @@
-test_that("init defaults to PPM when no repos provided", {
+test_that("init defaults to CRAN when no repos provided", {
   tmp_dir <- tempfile()
   dir.create(tmp_dir)
   on.exit(unlink(tmp_dir, recursive = TRUE))
 
   mockery::stub(cmd_init, "backend_init", function(project, repos) {
-    expect_equal(repos[["RSPM"]], "https://packagemanager.posit.co/cran/latest")
+    expect_equal(repos[["CRAN"]], "https://cran.r-project.org")
   })
 
   cmd_init(path = tmp_dir, repos = NULL, install_self = "never")
 
   rproject <- desc::description$new(file.path(tmp_dir, "DESCRIPTION"))
   expect_equal(
-    rproject$get_field("Config/intent/repos/RSPM"),
-    "https://packagemanager.posit.co/cran/latest"
+    rproject$get_field("Config/intent/repos/CRAN"),
+    "https://cran.r-project.org"
   )
 })
 
@@ -169,7 +169,7 @@ test_that("intent::init creates necessary files", {
     file = file.path(tmp_dir, "renv.lock"),
     project = tmp_dir
   )
-  ### check repos
+  ### check repos — user's name preserved as-is
   renv_repos <- renv_lock$R$Repositories
   expect_equal(names(renv_repos), c("CRAN"))
   expect_equal(

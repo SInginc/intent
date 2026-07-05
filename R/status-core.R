@@ -10,7 +10,10 @@ new_intent_status <- function(
   library_path,
   missing_from_library,
   source_policy = NULL,
-  source_violations = intent_source_violations_empty()
+  source_violations = intent_source_violations_empty(),
+  r_version = NULL,
+  r_constraint = NULL,
+  lockfile_r_version = NULL
 ) {
   structure(
     list(
@@ -22,7 +25,10 @@ new_intent_status <- function(
       library_path = library_path,
       missing_from_library = missing_from_library,
       source_policy = source_policy,
-      source_violations = source_violations
+      source_violations = source_violations,
+      r_version = r_version %||% as.character(getRversion()),
+      r_constraint = r_constraint,
+      lockfile_r_version = lockfile_r_version
     ),
     class = "intent_status"
   )
@@ -75,6 +81,27 @@ intent_verification_issue <- function(check, severity, message) {
   )
 }
 
+#' Read the R version constraint from DESCRIPTION
+#'
+#' Returns the version constraint string (e.g. `">= 4.5"`) recorded in
+#' `Depends: R`, or `NULL` when no R constraint is declared.
+#'
+#' @param project Path to the project directory.
+#' @return Character string or NULL.
+#' @keywords internal
+intent_r_constraint <- function(project) {
+  deps <- desc::desc_get_deps(file = file.path(project, "DESCRIPTION"))
+  r_deps <- deps[deps$package == "R" & deps$type == "Depends", , drop = FALSE]
+  if (nrow(r_deps) == 0) {
+    return(NULL)
+  }
+  constraint <- r_deps$version[[1]]
+  if (is.na(constraint) || !nzchar(constraint)) {
+    return(NULL)
+  }
+  constraint
+}
+
 intent_manifest_packages <- function(project) {
   desc_deps <- desc::desc_get_deps(file = file.path(project, "DESCRIPTION"))
   target_types <- c("Imports", "Suggests")
@@ -115,32 +142,32 @@ intent_lock_dependency_closure <- function(lock, roots) {
   sort(seen)
 }
 
+#' Base R packages (cached after first lookup)
+#'
+#' Returns the set of packages shipped with R that should be excluded from
+#' dependency-closure calculations.  Queried from `installed.packages()` at
+#' first call and cached for the remainder of the session.
+#'
+#' @return Character vector of base R package names.
+#' @keywords internal
+intent_base_packages <- local({
+  pkgs <- NULL
+  function() {
+    if (is.null(pkgs)) {
+      pkgs <- rownames(utils::installed.packages(priority = "base"))
+      pkgs <- unique(c("R", pkgs))
+    }
+    pkgs
+  }
+})
+
 intent_lock_package_dependencies <- function(record) {
   fields <- c("Depends", "Imports", "LinkingTo")
   deps <- unlist(record[intersect(fields, names(record))], use.names = FALSE)
   deps <- gsub("\\s*\\(.*\\)$", "", deps)
   deps <- trimws(deps)
   deps <- deps[nzchar(deps)]
-  sort(setdiff(
-    unique(deps),
-    c(
-      "R",
-      "base",
-      "compiler",
-      "datasets",
-      "graphics",
-      "grDevices",
-      "grid",
-      "methods",
-      "parallel",
-      "splines",
-      "stats",
-      "stats4",
-      "tcltk",
-      "tools",
-      "utils"
-    )
-  ))
+  sort(setdiff(unique(deps), intent_base_packages()))
 }
 
 intent_source_violations_empty <- function() {
@@ -195,7 +222,7 @@ intent_lock_record_source <- function(record) {
   if (grepl("bioconductor|bioc", source)) {
     return("bioc")
   }
-  if (grepl("^https?://", record[["RemoteUrl"]] %||% "")) {
+  if (is_http_url(record[["RemoteUrl"]] %||% "")) {
     return("url")
   }
   if (!is.null(record[["RemoteType"]])) {
@@ -314,6 +341,16 @@ intent_verify_project_issues <- function(project, status) {
 
   lock <- backend_read_lockfile(project)
   repos <- load_intent_repos(project)
+
+  # R version checks
+  issues <- rbind(
+    issues,
+    intent_verify_r_version_issues(
+      r_constraint = status$r_constraint,
+      lockfile_r_version = status$lockfile_r_version
+    )
+  )
+
   issues <- rbind(issues, intent_verify_repository_issues(lock, repos))
   issues <- rbind(
     issues,
@@ -330,40 +367,253 @@ intent_verify_project_issues <- function(project, status) {
   issues
 }
 
+intent_supplement_repositories <- function(lock, repos) {
+  packages <- lock$Packages %||% list()
+  repo_table <- lock$R$Repositories %||% character()
+  supplemented <- FALSE
+  undeclared <- character()
+
+  for (pkg_record in packages) {
+    repo_name <- pkg_record[["Repository"]]
+    if (is.null(repo_name) || is.na(repo_name) || !nzchar(repo_name)) {
+      next
+    }
+    # Skip URL-type Repository fields (old renv behaviour)
+    if (is_http_url(repo_name)) {
+      next
+    }
+    if (repo_name %in% names(repo_table)) {
+      next
+    }
+
+    # Resolve via the package record's own URL fields
+    record_url <- intent_lock_record_repository_url(pkg_record)
+    if (!is.na(record_url) && nzchar(record_url)) {
+      norm_record_url <- normalize_repo_url(record_url)
+      for (decl_name in names(repos)) {
+        if (
+          identical(normalize_repo_url(repos[[decl_name]]), norm_record_url)
+        ) {
+          repo_table[[repo_name]] <- unname(repos[[decl_name]])
+          supplemented <- TRUE
+          break
+        }
+      }
+      if (repo_name %in% names(repo_table)) {
+        next
+      }
+    }
+
+    # Collect undeclared names for messaging
+    undeclared <- c(undeclared, repo_name)
+  }
+
+  if (length(undeclared) > 0) {
+    undeclared <- unique(undeclared)
+    known <- undeclared[undeclared %in% INTENT_KNOWN_PPM_NAMES]
+    unknown <- setdiff(undeclared, known)
+
+    if (length(known) > 0) {
+      message(
+        "Lockfile packages reference repository name(s) ",
+        paste(sQuote(known), collapse = ", "),
+        " which are not declared in Config/intent/repos. ",
+        "These names are produced by the package repository server ",
+        "(e.g. Posit Package Manager reports 'RSPM'). ",
+        "Consider adding them to DESCRIPTION so renv::restore() can ",
+        "resolve packages from this source."
+      )
+    }
+    if (length(unknown) > 0) {
+      message(
+        "Lockfile packages reference undeclared repository name(s) ",
+        paste(sQuote(unknown), collapse = ", "),
+        ". These names are not declared in Config/intent/repos."
+      )
+    }
+  }
+
+  if (supplemented) {
+    lock$R$Repositories <- repo_table
+  }
+
+  lock
+}
+
+intent_verify_r_version_issues <- function(
+  r_constraint = NULL,
+  lockfile_r_version = NULL
+) {
+  issues <- intent_verification_issues_empty()
+  session_ver <- as.character(getRversion())
+
+  # 1. Session compatibility: does current R satisfy the DESCRIPTION constraint?
+  if (!is.null(r_constraint)) {
+    parsed <- parse_r_version_constraint(r_constraint)
+    if (!is.null(parsed) && !r_version_satisfies(session_ver, parsed)) {
+      issues <- rbind(
+        issues,
+        intent_verification_issue(
+          "r_version",
+          "error",
+          sprintf(
+            "DESCRIPTION requires R %s, but the current session is R %s",
+            r_constraint,
+            session_ver
+          )
+        )
+      )
+    }
+  }
+
+  # 2. Lockfile consistency: does lockfile R satisfy the DESCRIPTION constraint?
+  if (!is.null(lockfile_r_version) && !is.null(r_constraint)) {
+    parsed <- parse_r_version_constraint(r_constraint)
+    if (!is.null(parsed) && !r_version_satisfies(lockfile_r_version, parsed)) {
+      issues <- rbind(
+        issues,
+        intent_verification_issue(
+          "r_version",
+          "error",
+          sprintf(
+            "DESCRIPTION requires R %s, but renv.lock records R %s",
+            r_constraint,
+            lockfile_r_version
+          )
+        )
+      )
+    }
+  }
+
+  # 3. Lockfile vs session: informational when they differ
+  if (
+    !is.null(lockfile_r_version) &&
+      !identical(lockfile_r_version, session_ver)
+  ) {
+    issues <- rbind(
+      issues,
+      intent_verification_issue(
+        "r_version",
+        "info",
+        sprintf(
+          "renv.lock records R %s, current session is R %s",
+          lockfile_r_version,
+          session_ver
+        )
+      )
+    )
+  }
+
+  issues
+}
+
+# Parse a constraint like ">= 4.5" into (op, major, minor)
+parse_r_version_constraint <- function(constraint) {
+  m <- regmatches(
+    constraint,
+    regexec("^(>=|>|==|<=|<)\\s*(\\d+)\\.(\\d+)", constraint)
+  )[[1]]
+  if (length(m) < 4) {
+    return(NULL)
+  }
+  list(
+    op = m[[2]],
+    major = as.integer(m[[3]]),
+    minor = as.integer(m[[4]])
+  )
+}
+
+r_version_satisfies <- function(version, constraint) {
+  parts <- as.integer(strsplit(version, "[.-]")[[1]])
+  v_major <- parts[[1]]
+  v_minor <- if (length(parts) >= 2) parts[[2]] else 0L
+
+  switch(
+    constraint$op,
+    ">=" = v_major > constraint$major ||
+      (v_major == constraint$major && v_minor >= constraint$minor),
+    ">" = v_major > constraint$major ||
+      (v_major == constraint$major && v_minor > constraint$minor),
+    "==" = v_major == constraint$major && v_minor == constraint$minor,
+    "<=" = v_major < constraint$major ||
+      (v_major == constraint$major && v_minor <= constraint$minor),
+    "<" = v_major < constraint$major ||
+      (v_major == constraint$major && v_minor < constraint$minor),
+    FALSE
+  )
+}
+
 intent_verify_repository_issues <- function(lock, repos) {
   lock_repos <- intent_lock_repositories(lock)
   issues <- intent_verification_issues_empty()
 
+  # --- "missing" check: repos in DESCRIPTION not in lockfile $R$Repositories ---
   missing <- setdiff(names(repos), names(lock_repos))
   if (length(missing) > 0) {
-    issues <- rbind(
-      issues,
-      intent_verification_issue(
-        "repositories",
-        "error",
-        paste(
-          "renv.lock is missing repositories declared in DESCRIPTION:",
-          paste(missing, collapse = ", ")
+    # Filter: a repo is NOT truly missing if a lockfile repo has the same URL
+    actually_missing <- character()
+    for (name in missing) {
+      decl_url <- normalize_repo_url(repos[[name]])
+      url_found <- FALSE
+      for (lock_url in lock_repos) {
+        if (identical(normalize_repo_url(lock_url), decl_url)) {
+          url_found <- TRUE
+          break
+        }
+      }
+      if (!url_found) {
+        actually_missing <- c(actually_missing, name)
+      }
+    }
+    if (length(actually_missing) > 0) {
+      issues <- rbind(
+        issues,
+        intent_verification_issue(
+          "repositories",
+          "error",
+          paste(
+            "renv.lock is missing repositories declared in DESCRIPTION:",
+            paste(actually_missing, collapse = ", ")
+          )
         )
       )
-    )
+    }
   }
 
+  # --- "extra" check: repos in lockfile $R$Repositories not in DESCRIPTION ---
   extra <- setdiff(names(lock_repos), names(repos))
   if (length(extra) > 0) {
-    issues <- rbind(
-      issues,
-      intent_verification_issue(
-        "repositories",
-        "error",
-        paste(
-          "renv.lock contains repositories not declared in DESCRIPTION:",
-          paste(extra, collapse = ", ")
+    # Filter: a repo is NOT truly extra if a declared repo has the same URL
+    actually_extra <- character()
+    for (name in extra) {
+      lock_url <- normalize_repo_url(lock_repos[[name]])
+      url_found <- FALSE
+      for (decl_url in repos) {
+        if (identical(normalize_repo_url(decl_url), lock_url)) {
+          url_found <- TRUE
+          break
+        }
+      }
+      if (!url_found) {
+        actually_extra <- c(actually_extra, name)
+      }
+    }
+    if (length(actually_extra) > 0) {
+      issues <- rbind(
+        issues,
+        intent_verification_issue(
+          "repositories",
+          "error",
+          paste(
+            "renv.lock contains repositories not declared in DESCRIPTION:",
+            paste(actually_extra, collapse = ", ")
+          )
         )
       )
-    )
+    }
   }
 
+  # --- URL mismatch check for same-named repos ---
   common <- intersect(names(repos), names(lock_repos))
   mismatched <- common[
     normalize_repo_url(repos[common]) != normalize_repo_url(lock_repos[common])
@@ -456,44 +706,96 @@ intent_check_repository_policy <- function(row, repos) {
     ))
   }
 
-  if (!repository %in% names(repos)) {
+  repository_url <- row$repository_url
+
+  # Case 1: Repository field IS a URL (old renv behaviour)
+  if (is_http_url(repository)) {
+    norm_repo <- normalize_repo_url(repository)
+    for (decl_name in names(repos)) {
+      if (identical(normalize_repo_url(repos[[decl_name]]), norm_repo)) {
+        return(intent_source_violations_empty())
+      }
+    }
     return(intent_source_violation(
       row$package,
       row$source,
       repository,
       sprintf(
-        "repository '%s' is not declared in Config/intent/repos",
+        "repository URL '%s' is not declared in Config/intent/repos",
         repository
       )
     ))
   }
 
-  repository_url <- row$repository_url
+  # Case 2: Direct name match
+  if (repository %in% names(repos)) {
+    if (
+      !is.na(repository_url) &&
+        nzchar(repository_url) &&
+        !identical(
+          normalize_repo_url(repository_url),
+          normalize_repo_url(repos[[repository]])
+        )
+    ) {
+      return(intent_source_violation(
+        row$package,
+        row$source,
+        repository,
+        sprintf(
+          "repository '%s' URL does not match Config/intent/repos",
+          repository
+        )
+      ))
+    }
+    return(intent_source_violations_empty())
+  }
+
+  # Case 3: Undeclared name — resolve against declared URLs via the
+  # package's own repository_url.  Covers PPM (RSPM) and any future
+  # repository name that resolves to a declared URL.
   if (
     !is.na(repository_url) &&
-      nzchar(repository_url) &&
-      !identical(
-        normalize_repo_url(repository_url),
-        normalize_repo_url(repos[[repository]])
-      )
+      nzchar(repository_url)
   ) {
+    norm_pkg_url <- normalize_repo_url(repository_url)
+    for (decl_name in names(repos)) {
+      if (identical(normalize_repo_url(repos[[decl_name]]), norm_pkg_url)) {
+        return(intent_source_violations_empty())
+      }
+    }
     return(intent_source_violation(
       row$package,
       row$source,
       repository,
       sprintf(
-        "repository '%s' URL does not match Config/intent/repos",
+        "repository '%s' URL does not match any declared repository in Config/intent/repos",
         repository
       )
     ))
   }
 
-  intent_source_violations_empty()
+  # Case 4: Unrecognised name, no repository_url to verify
+  intent_source_violation(
+    row$package,
+    row$source,
+    repository,
+    sprintf(
+      "repository '%s' is not declared in Config/intent/repos",
+      repository
+    )
+  )
 }
 
 normalize_repo_url <- function(url) {
   sub("/+$", "", trimws(url))
 }
+
+# Repository names that renv lockfile package records may contain even
+# when the user declared the same source under a different name.  Used
+# only to generate informative messages — never for silent behaviour
+# changes.  PPM's PACKAGES file reports Repository: RSPM regardless of
+# how the user names the repository in Config/intent/repos.
+INTENT_KNOWN_PPM_NAMES <- c("RSPM")
 
 intent_library_packages <- function(project) {
   library_path <- backend_library(project)

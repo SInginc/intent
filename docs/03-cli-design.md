@@ -60,6 +60,9 @@ Initializes the current directory or a supplied path as an `intent` project.
 - Avoid overwriting existing user configuration without warning.
 - Default to Posit Package Manager (PPM), named `RSPM`, when no repos are
   provided and defaults are allowed.
+- Resolve lockfile repository provenance against declared repos by URL when
+  names differ (e.g. `Repository: RSPM` against a declared `CRAN` pointing to
+  the same PPM URL).
 - Make repository choice visible through prompts or non-interactive messages.
 
 ### `intent add`

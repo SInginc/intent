@@ -1,6 +1,7 @@
 cmd_init <- function(
   path = ".",
   repos = NULL,
+  r_version = NULL,
   install_self = "hydrate",
   confirm_repos = interactive(),
   use_default_repo = TRUE
@@ -68,7 +69,7 @@ cmd_init <- function(
       )
     }
     repos <- confirm_default_repos(
-      c(RSPM = "https://packagemanager.posit.co/cran/latest"),
+      load_default_repos(),
       confirm_repos = confirm_repos
     )
     for (i in seq_along(repos)) {
@@ -76,6 +77,22 @@ cmd_init <- function(
         sprintf("Config/intent/repos/%s", names(repos)[[i]]),
         repos[[i]]
       )
+    }
+  }
+
+  # R version constraint
+  if (!isFALSE(r_version) && !identical(r_version, NA)) {
+    if (is.null(r_version)) {
+      ver <- getRversion()
+      r_version <- paste(ver$major, ver$minor, sep = ".")
+    }
+    if (is.character(r_version) && nzchar(r_version)) {
+      constraint <- if (grepl("^[0-9]", r_version)) {
+        paste(">=", r_version)
+      } else {
+        r_version
+      }
+      rproject$set_dep("R", type = "Depends", version = constraint)
     }
   }
 
@@ -355,12 +372,20 @@ cmd_status <- function(project = NULL) {
   repos <- load_intent_repos(project)
   source_policy <- get_source_policy(file.path(project, "DESCRIPTION"))
   source_violations <- intent_source_violations_empty()
+
+  # R version info
+  r_constraint <- if (file.exists(file.path(project, "DESCRIPTION"))) {
+    intent_r_constraint(project)
+  }
+  lockfile_r_version <- NULL
   if (file.exists(file.path(project, "renv.lock"))) {
+    lock <- backend_read_lockfile(project)
     source_violations <- intent_check_source_policy(
-      backend_read_lockfile(project),
+      lock,
       repos = repos,
       source_policy = source_policy
     )
+    lockfile_r_version <- lock$R$Version %||% NULL
   }
 
   new_intent_status(
@@ -372,7 +397,9 @@ cmd_status <- function(project = NULL) {
     library_path = library_path,
     missing_from_library = setdiff(locked_packages, library_packages),
     source_policy = source_policy,
-    source_violations = source_violations
+    source_violations = source_violations,
+    r_constraint = r_constraint,
+    lockfile_r_version = lockfile_r_version
   )
 }
 
