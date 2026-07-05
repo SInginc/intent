@@ -375,3 +375,16 @@ cmd_status <- function(project = NULL) {
     source_violations = source_violations
   )
 }
+
+cmd_verify <- function(project = NULL) {
+  project <- resolve_project(project)
+  current_status <- cmd_status(project = project)
+  issues <- intent_verify_project_issues(project, current_status)
+
+  new_intent_verification(
+    project = project,
+    ok = nrow(issues) == 0,
+    issues = issues,
+    status = current_status
+  )
+}

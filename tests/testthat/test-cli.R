@@ -13,11 +13,81 @@ test_that("cli status parser calls command layer", {
   called <- NULL
   mockery::stub(cli_status, "cmd_status", function(project) {
     called <<- list(project = project)
+    new_intent_status(
+      project = project,
+      manifest_packages = character(),
+      locked_packages = character(),
+      missing_from_lockfile = character(),
+      extra_in_lockfile = character(),
+      library_path = "library",
+      missing_from_library = character()
+    )
   })
 
-  cli_status(c("--project", "proj"))
+  output <- capture.output(cli_status(c("--project", "proj")))
 
   expect_equal(called$project, "proj")
+  expect_match(paste(output, collapse = "\n"), "Project: proj")
+})
+
+test_that("cli_main dispatches verify command", {
+  called <- NULL
+  mockery::stub(cli_main, "cli_verify", function(args) {
+    called <<- args
+  })
+
+  cli_main(c("verify", "--project", "proj"))
+
+  expect_equal(called, c("--project", "proj"))
+})
+
+test_that("cli verify parser calls command layer", {
+  called <- NULL
+  mockery::stub(cli_verify, "cmd_verify", function(project) {
+    called <<- list(project = project)
+    new_intent_verification(
+      project = project,
+      ok = TRUE,
+      issues = intent_verification_issues_empty(),
+      status = new_intent_status(
+        project = project,
+        manifest_packages = character(),
+        locked_packages = character(),
+        missing_from_lockfile = character(),
+        extra_in_lockfile = character(),
+        library_path = "library",
+        missing_from_library = character()
+      )
+    )
+  })
+
+  cli_verify(c("--project", "proj"))
+
+  expect_equal(called$project, "proj")
+})
+
+test_that("cli verify fails when project contract is invalid", {
+  mockery::stub(cli_verify, "cmd_verify", function(project) {
+    new_intent_verification(
+      project = project,
+      ok = FALSE,
+      issues = intent_verification_issue("lockfile", "error", "missing"),
+      status = new_intent_status(
+        project = project,
+        manifest_packages = character(),
+        locked_packages = character(),
+        missing_from_lockfile = character(),
+        extra_in_lockfile = character(),
+        library_path = "library",
+        missing_from_library = character()
+      )
+    )
+  })
+
+  expect_error(
+    cli_verify(c("--project", "proj")),
+    "Project verification failed"
+  )
 })
 
 test_that("cli dispatches sync dry-run", {
@@ -173,6 +243,8 @@ test_that("cli_print_help includes all commands and flags", {
   expect_match(text, "intent remove")
   expect_match(text, "intent sync")
   expect_match(text, "intent status")
+  expect_match(text, "intent verify")
+  expect_match(text, "intent doctor")
   expect_match(text, "--project")
   expect_match(text, "--dry-run")
   expect_match(text, "--json")

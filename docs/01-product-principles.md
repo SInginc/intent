@@ -46,6 +46,7 @@ backend state.
 ## 4. Backends Are Replaceable
 
 `renv` and `pak` should be backend collaborators, not the core product model.
+`intent` is a stricter project contract layer above those tools.
 
 The core should be able to say:
 
@@ -54,14 +55,32 @@ The core should be able to say:
 - Compare intent and state.
 - Plan operations.
 - Execute operations through an adapter.
+- Normalize backend output before it becomes project state.
 
 The adapter may use `renv`, `pak`, or another backend later.
+
+The product contract is:
+
+```text
+DESCRIPTION declares.
+intent enforces.
+renv executes.
+renv.lock records.
+```
+
+`renv.lock` is essential for reproducibility, but it should not become the
+source of project policy. Policy belongs in `DESCRIPTION` and
+`Config/intent/`.
 
 ## 5. No Hidden Session Magic
 
 Public commands should not require the user to already be in a perfectly loaded
 R session unless the command truly needs that. Prefer explicit project paths and
 clear discovery rules over implicit `renv::project()` behavior.
+
+Commands should also avoid depending on ambient `.libPaths()`, `options(repos)`,
+or packages that happen to be installed in the caller's library. Those values
+may differ by machine, platform, CI runner, or interactive session.
 
 Good:
 
