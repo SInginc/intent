@@ -15,6 +15,20 @@ Intent Core
 Backend Adapters
 ```
 
+The architectural contract is:
+
+```text
+DESCRIPTION declares.
+intent enforces.
+renv executes.
+renv.lock records.
+```
+
+`DESCRIPTION` and `Config/intent/` define the project contract. `renv.lock`
+records the resolved state derived from that contract. Backend tools such as
+`renv` and `pak` execute operations, but their defaults and session-dependent
+behavior must not define intent's product semantics.
+
 ## Interfaces
 
 Interfaces translate user input into command calls.
@@ -43,6 +57,15 @@ Examples:
 Commands should not directly manipulate `renv` internals. They should call core
 functions and backend adapters.
 
+Mutating commands should follow a consistent lifecycle:
+
+1. Resolve the project.
+2. Read the intent project model.
+3. Validate the model before doing work.
+4. Execute backend operations with explicit arguments.
+5. Normalize backend outputs.
+6. Verify the final project state.
+
 ## Intent Core
 
 The core owns product concepts and should be easy to test without installing
@@ -56,12 +79,15 @@ Core responsibilities:
 - Read lockfile state through an abstract state reader.
 - Compare manifest dependencies to locked dependencies.
 - Build operation plans.
+- Normalize lockfile state against the project contract.
+- Verify project invariants before and after mutating commands.
 
 Potential core objects:
 
 - `IntentProject`
 - `IntentManifest`
 - `IntentState`
+- `IntentPolicy`
 - `DependencySpec`
 - `OperationPlan`
 
@@ -78,11 +104,29 @@ small adapter surface:
 - `backend_init(project, repos)`
 - `backend_install(project, packages, repos)`
 - `backend_remove(project, packages)`
-- `backend_lock(project)`
-- `backend_restore(project)`
+- `backend_snapshot(project, repos, lockfile, type)`
+- `backend_restore(project, repos)`
 - `backend_read_state(project)`
 
-This keeps `renv` from spreading through the codebase.
+This keeps `renv` from spreading through the codebase. Adapter calls should
+receive all state needed to behave deterministically, rather than relying on the
+current working directory, `.libPaths()`, `options(repos)`, project settings
+being rediscovered, or platform-specific backend defaults.
+
+## Lockfile Normalization
+
+Any backend operation that writes or rewrites `renv.lock` must write to a
+candidate lockfile or equivalent temporary state first. Before replacing the
+official project lockfile, intent must normalize and validate the candidate:
+
+- `$R$Repositories` must match `Config/intent/repos/*` exactly.
+- Snapshot behavior must be explicit.
+- Lockfile package provenance must satisfy the source policy.
+- Repository package records must use declared repository names.
+- Bootstrap packages must follow explicit intent rules.
+
+The official `renv.lock` should be replaced only after these checks pass, or
+after violations are handled according to the configured policy mode.
 
 ## Current Architecture Smell
 
@@ -97,6 +141,7 @@ That creates these risks:
 - Tests that require network or package installation for logic that should be
   unit-testable.
 - No clean path to a CLI because there is no shared command layer.
+- Backend output becoming official project state before intent can normalize it.
 
 ## Refactoring Direction
 
