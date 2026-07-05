@@ -1,0 +1,30 @@
+url: https://singinc.github.io/intent/
+destination: pkgdown
+
+template:
+  bootstrap: 5
+
+navbar:
+  structure:
+    left: [intro, reference, articles, news]
+    right: [search, github]
+
+reference:
+  - title: Project setup
+    contents:
+      - init
+  - title: Dependency workflow
+    contents:
+      - add
+      - remove
+      - sync
+  - title: Inspection and verification
+    contents:
+      - status
+      - verify
+
+articles:
+  - title: Getting started
+    navbar: Getting started
+    contents:
+      - first-intent-project

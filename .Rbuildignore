@@ -7,6 +7,7 @@
 ^\.Rprofile$
 ^.*\.Rcheck$
 ^.*\.tar\.gz$
+^pkgdown$
 ^sandbox$
 ^LICENSE\.md$
 ^design$

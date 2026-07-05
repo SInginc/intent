@@ -8,7 +8,7 @@ Description: A productivity-focused R package manager inspired by Python's 'uv'.
     'DESCRIPTION' file as intent and 'renv.lock' as state. Automates the
     complexity of keeping manifests, installed packages, and lockfiles in sync
     with simple commands like init(), add(), remove(), and sync().
-URL: https://github.com/SInginc/intent
+URL: https://github.com/SInginc/intent, https://singinc.github.io/intent/
 BugReports: https://github.com/SInginc/intent/issues
 Depends:
     R (>= 4.0)
@@ -21,15 +21,20 @@ Imports:
 Suggests:
     covr (>= 3.6.5),
     devtools (>= 2.4.6),
+    knitr,
     languageserver (>= 0.3.16),
     mockery (>= 0.4.5),
+    pkgdown,
     pkgload (>= 1.4.1),
+    rmarkdown,
     testthat (>= 3.0.0),
     usethis (>= 3.2.1),
     withr (>= 3.0.2)
 License: MIT + file LICENSE
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-Config/intent/repos/rspm: https://packagemanager.posit.co/cran/latest
-Config/intent/repos/r-multiverse: https://community.r-multiverse.org
+VignetteBuilder: knitr
+Config/intent/repos/RSPM: https://packagemanager.posit.co/cran/latest
+Config/intent/repos/CRAN: https://packagemanager.posit.co/cran/latest
+Config/intent/repos/R-MULTIVERSE: https://community.r-multiverse.org
 Config/roxygen2/version: 8.0.0

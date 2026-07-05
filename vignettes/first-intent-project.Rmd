@@ -1,0 +1,177 @@
+---
+title: "Your first intent project"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{Your first intent project}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(
+  collapse = TRUE,
+  comment = "#>",
+  eval = FALSE
+)
+```
+
+`intent` is a project dependency manager for R. It keeps the project contract in
+`DESCRIPTION`, uses `renv.lock` as the resolved state, and installs packages
+into the project library.
+
+The core workflow is:
+
+```text
+DESCRIPTION declares.
+intent enforces.
+renv executes.
+renv.lock records.
+```
+
+This article walks through the first project journey: initialize, add a package,
+inspect drift, verify the contract, remove a package, and sync after changes.
+
+## Start a project
+
+Create or choose a project directory, then initialize it with an explicit
+repository:
+
+```{r}
+intent::init(
+  path = "analysis-project",
+  repos = c(RSPM = "https://packagemanager.posit.co/cran/latest")
+)
+```
+
+`intent::init()` creates the project files that make the environment
+reproducible:
+
+- `DESCRIPTION`
+- `renv.lock`
+- `.Rprofile`
+- `.Renviron`
+- `renv/`
+
+It also writes the repository policy to `DESCRIPTION`:
+
+```text
+Config/intent/repos/RSPM: https://packagemanager.posit.co/cran/latest
+```
+
+That repository name matters. If a lockfile package records `Repository: RSPM`,
+the project must declare `Config/intent/repos/RSPM`.
+
+## Add a dependency
+
+Use `add()` for runtime dependencies:
+
+```{r}
+intent::add("dplyr", project = "analysis-project")
+```
+
+Use `dev = TRUE` for development or optional dependencies:
+
+```{r}
+intent::add("testthat", dev = TRUE, project = "analysis-project")
+```
+
+Adding a package updates the manifest, installs into the project library, and
+snapshots a normalized lockfile.
+
+## Preview before changing state
+
+Mutating commands support dry runs:
+
+```{r}
+intent::add("ggplot2", project = "analysis-project", dry_run = TRUE)
+```
+
+The returned plan lists what would be installed, what would be written to
+`DESCRIPTION`, and whether `renv.lock` would be updated.
+
+## Inspect status
+
+Use `status()` to see drift without changing anything:
+
+```{r}
+intent::status(project = "analysis-project")
+```
+
+Status reports:
+
+- packages declared in `DESCRIPTION`;
+- packages recorded in `renv.lock`;
+- packages missing from the project library;
+- source policy violations.
+
+The CLI can return the same information as JSON:
+
+```sh
+intent status --project analysis-project --json
+```
+
+## Verify the project contract
+
+Use `verify()` when you want a stricter check for CI or release preparation:
+
+```{r}
+intent::verify(project = "analysis-project")
+```
+
+`doctor()` is an alias:
+
+```{r}
+intent::doctor(project = "analysis-project")
+```
+
+Verification checks that:
+
+- packages declared in `DESCRIPTION` are present in `renv.lock`;
+- locked packages are installed in the project library;
+- `renv.lock` repositories match `Config/intent/repos/`;
+- source policy violations are absent;
+- lockfile packages are reachable from declared dependencies or bootstrap tools.
+
+The CLI exits with an error when verification fails, which makes it suitable for
+automation:
+
+```sh
+intent verify --project analysis-project --json
+```
+
+## Remove a dependency
+
+Use `remove()` to delete a direct dependency and reconcile the lockfile:
+
+```{r}
+intent::remove("dplyr", project = "analysis-project")
+```
+
+The package is removed from `DESCRIPTION`, removed from the project library when
+possible, and pruned from the lockfile if it is no longer needed.
+
+## Sync after pulling changes
+
+After editing `DESCRIPTION` manually or pulling changes from Git, use `sync()`:
+
+```{r}
+intent::sync(project = "analysis-project")
+```
+
+`sync()` installs missing declared packages, prunes lockfile packages no longer
+reachable from the manifest, snapshots a normalized lockfile, and restores the
+project library.
+
+## A compact daily loop
+
+Most projects settle into a short loop:
+
+```{r}
+intent::add("glue")
+intent::status()
+intent::verify()
+intent::sync()
+```
+
+The goal is not to replace `renv`. The goal is to make the project contract
+explicit, reviewable, and consistent across machines.

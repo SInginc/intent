@@ -3,6 +3,7 @@ sandbox/test-project/
 sandbox/bootstrap-library/
 sandbox/*/renv/
 sandbox/*/renv.lock
+pkgdown/
 
 renv
 renv.lock
