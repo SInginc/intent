@@ -11,8 +11,8 @@ A named character vector of repository URLs.
 }
 \description{
 Reads the \code{INTENT_DEFAULT_REPOS} environment variable.  When set, it should
-contain comma-separated \code{NAME=URL} pairs.  When unset, the Posit Package
-Manager default is returned.  Set to an empty string to force explicit
-repository declaration on every init.
+contain comma-separated \code{NAME=URL} pairs.  When unset, the CRAN mirror at
+\url{https://cran.r-project.org} is returned.  Set to an empty string to force
+explicit repository declaration on every init.
 }
 \keyword{internal}
