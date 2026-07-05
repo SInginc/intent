@@ -3,6 +3,55 @@
   if (is.null(x)) y else x
 }
 
+#' Check whether a string looks like an HTTP(S) URL
+#'
+#' Returns `TRUE` when `x` starts with `http://` or `https://`.
+#' Used to distinguish repository names from repository URLs in lockfile
+#' records (old versions of renv wrote full URLs as the Repository field).
+#'
+#' @param x Character vector of length 1.
+#' @return `TRUE` if `x` is an HTTP or HTTPS URL.
+#' @keywords internal
+is_http_url <- function(x) {
+  grepl("^https?://", x)
+}
+
+#' Load default repositories
+#'
+#' Reads the `INTENT_DEFAULT_REPOS` environment variable.  When set, it should
+#' contain comma-separated `NAME=URL` pairs.  When unset, the CRAN mirror at
+#' <https://cran.r-project.org> is returned.  Set to an empty string to force
+#' explicit repository declaration on every init.
+#'
+#' @return A named character vector of repository URLs.
+#' @keywords internal
+load_default_repos <- function() {
+  raw <- Sys.getenv("INTENT_DEFAULT_REPOS", unset = NA_character_)
+  if (is.na(raw)) {
+    return(c(CRAN = "https://cran.r-project.org"))
+  }
+  if (!nzchar(trimws(raw))) {
+    return(character())
+  }
+  parts <- strsplit(raw, "\\s*,\\s*")[[1]]
+  parts <- parts[nzchar(parts)]
+  if (length(parts) == 0) {
+    return(character())
+  }
+  pairs <- strsplit(parts, "=")
+  repos <- vapply(
+    pairs,
+    function(p) if (length(p) >= 2) p[[2]] else "",
+    character(1)
+  )
+  names(repos) <- vapply(
+    pairs,
+    function(p) if (length(p) >= 2) p[[1]] else "",
+    character(1)
+  )
+  repos[names(repos) != "" & repos != ""]
+}
+
 #' Extract bare package name from a package reference
 #'
 #' Strips `user/repo` path prefixes and `@version` suffixes to return the
@@ -218,7 +267,7 @@ intent_check_requested_source <- function(
 }
 
 intent_package_ref_source_class <- function(pkg) {
-  if (grepl("^https?://", pkg)) {
+  if (is_http_url(pkg)) {
     return("url")
   }
   if (grepl("^github::", pkg)) {
@@ -249,6 +298,7 @@ intent_snapshot <- function(project, force = TRUE) {
   backend_snapshot(project, repos, force = force, lockfile = candidate)
   lock <- renv::lockfile_read(candidate)
   lock$R$Repositories <- repos
+  lock <- intent_supplement_repositories(lock, repos)
   intent_enforce_source_policy(project, lock, repos)
   renv::lockfile_write(lock, file = candidate, project = project)
   file.copy(candidate, lockfile, overwrite = TRUE)

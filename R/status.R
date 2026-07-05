@@ -34,7 +34,15 @@ doctor <- function(project = NULL) {
 #' @export
 print.intent_status <- function(x, ...) {
   cat("Project: ", x$project, "\n", sep = "")
-  cat("Library: ", x$library_path, "\n\n", sep = "")
+  cat("Library: ", x$library_path, "\n", sep = "")
+  cat("R version: ", x$r_version, sep = "")
+  if (!is.null(x$r_constraint)) {
+    cat(" (constraint: ", x$r_constraint, ")", sep = "")
+  }
+  if (!is.null(x$lockfile_r_version) && x$lockfile_r_version != x$r_version) {
+    cat(" [lockfile: ", x$lockfile_r_version, "]", sep = "")
+  }
+  cat("\n\n")
 
   print_status_count("Manifest packages", x$manifest_packages)
   print_status_count("Locked packages", x$locked_packages)

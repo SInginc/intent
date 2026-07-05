@@ -244,7 +244,7 @@ parse_override <- function(override_str) {
   ref <- NULL
   repo <- NULL
 
-  if (grepl("^https?://", src)) {
+  if (is_http_url(src)) {
     # URL source
     repo <- src
     ref <- sprintf("%s@%s", pkg_name, ver)

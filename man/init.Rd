@@ -7,6 +7,7 @@
 init(
   path = ".",
   repos = NULL,
+  r_version = NULL,
   install_self = "hydrate",
   confirm_repos = interactive()
 )
@@ -15,9 +16,16 @@ init(
 \item{path}{Character string. Path to the new project directory. Defaults to current working directory.}
 
 \item{repos}{Character vector. Named repositories to use. Defaults to
-\href{https://packagemanager.posit.co/cran/latest}{Posit Package Manager}
-when neither this argument nor an existing DESCRIPTION file provides
-repository configuration.}
+the value of the \code{INTENT_DEFAULT_REPOS} environment variable (format:
+\code{"NAME=URL,NAME=URL"}), or the CRAN mirror at
+\url{https://cran.r-project.org} when the variable is
+unset. Set the variable to an empty string to require explicit
+repository configuration on every init.}
+
+\item{r_version}{R version constraint to write into \code{DESCRIPTION} as
+\verb{Depends: R (>= x.y)}.  Use \code{NULL} (the default) to record the
+current session's major.minor version, or \code{NA} to skip writing an R
+version constraint.}
 
 \item{install_self}{Character string. \code{"hydrate"} attempts to copy the
 currently installed \code{intent} package from the active library paths into the

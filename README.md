@@ -318,9 +318,12 @@ as:
 Config/intent/repos/RSPM: https://packagemanager.posit.co/cran/latest
 ```
 
-The repository name matters. If `renv.lock` records `Repository: RSPM`, the
-project must declare `Config/intent/repos/RSPM`. A different name such as
-`CRAN`, even with the same URL, is treated as different policy.
+The repository name matters, but intent uses URL-aware matching to avoid
+spurious policy violations. If `renv.lock` records `Repository: RSPM` and a
+declared repository points to the same Posit Package Manager URL — even under a
+different name such as `CRAN` — the match succeeds. Lockfile repository names
+that are not declared are supplemented into `$R$Repositories` at snapshot time
+so `renv::restore()` can resolve them.
 
 ### Source Policy
 
