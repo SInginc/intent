@@ -93,6 +93,85 @@ test_that("status delegates to command layer", {
   expect_identical(status(project = "project"), expected)
 })
 
+test_that("verify delegates to command layer", {
+  expected <- new_intent_verification(
+    project = "project",
+    ok = TRUE,
+    issues = intent_verification_issues_empty(),
+    status = new_intent_status(
+      project = "project",
+      manifest_packages = character(),
+      locked_packages = character(),
+      missing_from_lockfile = character(),
+      extra_in_lockfile = character(),
+      library_path = "library",
+      missing_from_library = character()
+    )
+  )
+
+  mockery::stub(verify, "cmd_verify", function(project) expected)
+
+  expect_identical(verify(project = "project"), expected)
+})
+
+test_that("doctor delegates to verify", {
+  expected <- "verification"
+  mockery::stub(doctor, "verify", function(project) expected)
+
+  expect_identical(doctor(project = "project"), expected)
+})
+
+test_that("cmd_verify reports missing lockfile", {
+  tmp_dir <- tempfile()
+  dir.create(tmp_dir)
+  on.exit(unlink(tmp_dir, recursive = TRUE))
+
+  writeLines("Package: testpkg", file.path(tmp_dir, "DESCRIPTION"))
+
+  result <- cmd_verify(project = tmp_dir)
+
+  expect_s3_class(result, "intent_verification")
+  expect_false(result$ok)
+  expect_true(any(result$issues$check == "lockfile"))
+  expect_match(
+    paste(result$issues$message, collapse = "\n"),
+    "renv.lock does not exist",
+    fixed = TRUE
+  )
+})
+
+test_that("verify flags repository mismatches", {
+  lock <- list(
+    R = list(
+      Repositories = c(CRAN = "https://packagemanager.posit.co/cran/latest")
+    )
+  )
+
+  issues <- intent_verify_repository_issues(
+    lock,
+    repos = c(RSPM = "https://packagemanager.posit.co/cran/latest")
+  )
+
+  expect_true(any(grepl("missing repositories", issues$message)))
+  expect_true(any(grepl("not declared", issues$message)))
+})
+
+test_that("verify flags lockfile packages outside dependency closure", {
+  lock <- list(
+    Packages = list(
+      dplyr = list(Imports = "tibble"),
+      tibble = list(Version = "1.0.0"),
+      orphan = list(Version = "1.0.0")
+    )
+  )
+
+  issues <- intent_verify_lockfile_closure_issues(lock, roots = "dplyr")
+
+  expect_equal(issues$check, "lockfile_closure")
+  expect_match(issues$message, "orphan")
+  expect_false(grepl("tibble", issues$message))
+})
+
 test_that("add dry-run returns a plan without mutating DESCRIPTION", {
   tmp_dir <- tempfile()
   dir.create(tmp_dir)
@@ -242,4 +321,28 @@ test_that("as.character.intent_plan returns valid JSON", {
   expect_equal(parsed$command, "add")
   expect_equal(parsed$packages, "dplyr")
   expect_length(parsed$actions, 3)
+})
+
+test_that("as.character.intent_verification returns valid JSON", {
+  obj <- new_intent_verification(
+    project = "/path/to/project",
+    ok = FALSE,
+    issues = intent_verification_issue("lockfile", "error", "missing"),
+    status = new_intent_status(
+      project = "/path/to/project",
+      manifest_packages = "glue",
+      locked_packages = character(),
+      missing_from_lockfile = "glue",
+      extra_in_lockfile = character(),
+      library_path = "/path/to/library",
+      missing_from_library = character()
+    )
+  )
+
+  json_str <- as.character(obj)
+  parsed <- jsonlite::fromJSON(json_str)
+
+  expect_false(parsed$ok)
+  expect_equal(parsed$issues$check, "lockfile")
+  expect_equal(parsed$status$missing_from_lockfile, "glue")
 })

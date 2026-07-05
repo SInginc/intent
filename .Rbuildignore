@@ -1,5 +1,13 @@
 ^renv$
 ^renv\.lock$
+^\.git$
+^\.agents$
+^\.claude$
+^\.Renviron$
+^\.Rprofile$
+^.*\.Rcheck$
+^.*\.tar\.gz$
+^sandbox$
 ^LICENSE\.md$
 ^design$
 ^air\.toml$

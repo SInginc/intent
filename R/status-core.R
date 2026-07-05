@@ -45,6 +45,36 @@ new_intent_plan <- function(
   )
 }
 
+new_intent_verification <- function(project, ok, issues, status) {
+  structure(
+    list(
+      project = project,
+      ok = ok,
+      issues = issues,
+      status = status
+    ),
+    class = "intent_verification"
+  )
+}
+
+intent_verification_issues_empty <- function() {
+  data.frame(
+    check = character(),
+    severity = character(),
+    message = character(),
+    stringsAsFactors = FALSE
+  )
+}
+
+intent_verification_issue <- function(check, severity, message) {
+  data.frame(
+    check = check,
+    severity = severity,
+    message = message,
+    stringsAsFactors = FALSE
+  )
+}
+
 intent_manifest_packages <- function(project) {
   desc_deps <- desc::desc_get_deps(file = file.path(project, "DESCRIPTION"))
   target_types <- c("Imports", "Suggests")
@@ -236,6 +266,173 @@ intent_check_source_policy <- function(lock, repos, source_policy) {
   }
 
   violations
+}
+
+intent_verify_project_issues <- function(project, status) {
+  issues <- intent_verification_issues_empty()
+
+  if (length(status$missing_from_lockfile) > 0) {
+    issues <- rbind(
+      issues,
+      intent_verification_issue(
+        "lockfile",
+        "error",
+        paste(
+          "Packages declared in DESCRIPTION are missing from renv.lock:",
+          paste(status$missing_from_lockfile, collapse = ", ")
+        )
+      )
+    )
+  }
+
+  if (length(status$missing_from_library) > 0) {
+    issues <- rbind(
+      issues,
+      intent_verification_issue(
+        "library",
+        "error",
+        paste(
+          "Packages recorded in renv.lock are missing from the project library:",
+          paste(status$missing_from_library, collapse = ", ")
+        )
+      )
+    )
+  }
+
+  lock_path <- file.path(project, "renv.lock")
+  if (!file.exists(lock_path)) {
+    issues <- rbind(
+      issues,
+      intent_verification_issue(
+        "lockfile",
+        "error",
+        "renv.lock does not exist."
+      )
+    )
+    return(issues)
+  }
+
+  lock <- backend_read_lockfile(project)
+  repos <- load_intent_repos(project)
+  issues <- rbind(issues, intent_verify_repository_issues(lock, repos))
+  issues <- rbind(
+    issues,
+    intent_verify_source_policy_issues(status$source_violations)
+  )
+  issues <- rbind(
+    issues,
+    intent_verify_lockfile_closure_issues(
+      lock,
+      roots = c(status$manifest_packages, "intent", "pak", "renv")
+    )
+  )
+
+  issues
+}
+
+intent_verify_repository_issues <- function(lock, repos) {
+  lock_repos <- intent_lock_repositories(lock)
+  issues <- intent_verification_issues_empty()
+
+  missing <- setdiff(names(repos), names(lock_repos))
+  if (length(missing) > 0) {
+    issues <- rbind(
+      issues,
+      intent_verification_issue(
+        "repositories",
+        "error",
+        paste(
+          "renv.lock is missing repositories declared in DESCRIPTION:",
+          paste(missing, collapse = ", ")
+        )
+      )
+    )
+  }
+
+  extra <- setdiff(names(lock_repos), names(repos))
+  if (length(extra) > 0) {
+    issues <- rbind(
+      issues,
+      intent_verification_issue(
+        "repositories",
+        "error",
+        paste(
+          "renv.lock contains repositories not declared in DESCRIPTION:",
+          paste(extra, collapse = ", ")
+        )
+      )
+    )
+  }
+
+  common <- intersect(names(repos), names(lock_repos))
+  mismatched <- common[
+    normalize_repo_url(repos[common]) != normalize_repo_url(lock_repos[common])
+  ]
+  if (length(mismatched) > 0) {
+    issues <- rbind(
+      issues,
+      intent_verification_issue(
+        "repositories",
+        "error",
+        paste(
+          "renv.lock repository URLs differ from DESCRIPTION:",
+          paste(mismatched, collapse = ", ")
+        )
+      )
+    )
+  }
+
+  issues
+}
+
+intent_lock_repositories <- function(lock) {
+  raw_repos <- lock$R$Repositories %||% character()
+  if (length(raw_repos) == 0) {
+    return(character())
+  }
+
+  repo_names <- names(raw_repos)
+  repos <- unlist(raw_repos, use.names = FALSE)
+  repos <- as.character(repos)
+  names(repos) <- repo_names
+  repos
+}
+
+intent_verify_source_policy_issues <- function(violations) {
+  if (is.null(violations) || nrow(violations) == 0) {
+    return(intent_verification_issues_empty())
+  }
+
+  do.call(
+    rbind,
+    lapply(seq_len(nrow(violations)), function(i) {
+      violation <- violations[i, , drop = FALSE]
+      intent_verification_issue(
+        "source_policy",
+        "error",
+        sprintf("%s: %s", violation$package, violation$reason)
+      )
+    })
+  )
+}
+
+intent_verify_lockfile_closure_issues <- function(lock, roots) {
+  packages <- names(lock$Packages %||% list())
+  retained <- intent_lock_dependency_closure(lock, roots = roots)
+  zombies <- setdiff(packages, retained)
+
+  if (length(zombies) == 0) {
+    return(intent_verification_issues_empty())
+  }
+
+  intent_verification_issue(
+    "lockfile_closure",
+    "error",
+    paste(
+      "renv.lock contains packages not reachable from DESCRIPTION or bootstrap packages:",
+      paste(zombies, collapse = ", ")
+    )
+  )
 }
 
 intent_source_violation <- function(package, source, repository, reason) {

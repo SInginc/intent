@@ -14,6 +14,8 @@ In standard R, keeping your `DESCRIPTION` file, your installed packages, and you
 * **Manifest-driven:** Uses the standard `DESCRIPTION` file as a `pyproject.toml` equivalent.
 * **Blazing Fast:** Uses `pak` under the hood for multi-threaded installations.
 * **Explicit Isolation:** Forces `renv` into "explicit" mode—no more accidental dependencies from "junk" scripts.
+* **Contract Verification:** Checks that `DESCRIPTION`, repository policy,
+  `renv.lock`, and the project library agree.
 * **Zero-Config:** Automatically handles `.Rprofile` and repository settings.
 
 ---
@@ -29,6 +31,7 @@ In standard R, keeping your `DESCRIPTION` file, your installed packages, and you
 | **Remove Dependency** | Edit `DESCRIPTION`, run `remove.packages()`, run `renv::snapshot()` | `intent::remove("pkg")` |
 | **Sync Environment** | Run `renv::restore()`, manually check consistency | `intent::sync()` |
 | **Check Status** | Manually compare DESCRIPTION, lockfile, and library | `intent::status()` |
+| **Verify Contract** | Manually inspect repository and lockfile invariants | `intent::verify()` |
 
 ### intent vs Python uv
 
@@ -39,6 +42,7 @@ In standard R, keeping your `DESCRIPTION` file, your installed packages, and you
 | **Remove Dependency** | `uv remove pkg` | `intent::remove("pkg")` |
 | **Sync Environment** | `uv sync` | `intent::sync()` |
 | **Check Status** | `uv status` | `intent::status()` |
+| **Verify Contract** | `uv lock --check` / CI checks | `intent::verify()` |
 
 ---
 
@@ -229,6 +233,19 @@ Reports drift between manifest, lockfile, and library **without changing anythin
   repository name not declared in `Config/intent/repos/`.
 * Returns a structured object with `print()` and JSON (`as.character()`) output.
 * CLI: use `intent status --json` for machine-readable output.
+
+### `intent::verify()` / `intent::doctor()`
+
+Verifies the project contract **without changing anything**.
+
+* Checks that packages declared in `DESCRIPTION` are present in `renv.lock`.
+* Checks that locked packages are installed in the project library.
+* Checks that `renv.lock` repositories match `Config/intent/repos/`.
+* Checks source policy violations and lockfile packages outside the dependency
+  closure.
+* Returns an `intent_verification` object with `ok`, `issues`, and the
+  underlying `intent_status`.
+* CLI: use `intent verify --json` for CI-friendly machine-readable output.
 
 ---
 
@@ -570,6 +587,30 @@ chosen package source.
 
 ---
 
+## 6. `intent::verify()`
+
+**Objective:** Verify that the project contract is internally consistent.
+
+* **Arguments:**
+  * `project`: Path to the project directory. Defaults to the current intent project.
+
+* **Logical Flow:**
+
+1. Read status from `DESCRIPTION`, `renv.lock`, and the project library.
+2. Check that declared dependencies are locked.
+3. Check that locked packages are installed.
+4. Check that lockfile repositories match `Config/intent/repos/`.
+5. Check source policy violations.
+6. Check for lockfile packages outside the dependency closure rooted at
+   `DESCRIPTION` dependencies and bootstrap packages.
+
+* **Exit State:** No files or packages are changed. Returns an
+  `intent_verification` object. Use `as.character(verify())` or
+  `intent verify --json` for machine-readable output. The CLI exits with an
+  error when verification fails.
+
+---
+
 ## Summary of Interaction Logic
 
 | Function | Primary Tool | Target File | Impact |
@@ -579,5 +620,6 @@ chosen package source.
 | `remove` | `desc` + `renv` | `DESCRIPTION` | Manifest & Library |
 | `sync` | `renv` + `pak` | `renv.lock` | Library State |
 | `status` | `desc` + `renv` | (read-only) | Drift Inspection |
+| `verify` | `desc` + `renv` | (read-only) | Contract Verification |
 
 ---

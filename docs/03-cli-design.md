@@ -11,6 +11,8 @@ intent add <package>... [--project path] [--dev] [--dry-run]
 intent remove <package>... [--project path] [--dry-run]
 intent sync [--project path] [--dry-run] [--json] [--no-prune]
 intent status [--project path] [--json]
+intent verify [--project path] [--json]
+intent doctor [--project path] [--json]
 ```
 
 ## Common Flags
@@ -20,7 +22,7 @@ These flags are accepted by multiple commands:
 ```
 --project <path>   Override automatic project discovery with an
                    explicit path. Accepted by add, remove, sync,
-                   and status.
+                   status, verify, and doctor.
 
 --dry-run          Report planned actions without changing any
                    files or installed packages. Accepted by add,
@@ -28,8 +30,8 @@ These flags are accepted by multiple commands:
                    machine-readable output.
 
 --json             Output machine-readable JSON instead of
-                   human-readable text. Accepted by status (always)
-                   and sync (only with --dry-run).
+                   human-readable text. Accepted by status, verify,
+                   doctor, and sync (only with --dry-run).
 ```
 
 ## Command Semantics
@@ -138,6 +140,30 @@ Shows drift without mutating state.
 - Report source policy violations.
 - Return machine-readable output with `--json`.
 
+### `intent verify`
+
+Verifies the project contract without mutating state.
+
+`intent doctor` is an alias for the same command.
+
+**Flags:**
+
+```
+--project <path>   Override project discovery.
+--json             Output machine-readable JSON.
+```
+
+**Expected behavior:**
+
+- Check that declared packages are present in `renv.lock`.
+- Check that locked packages are installed in the project library.
+- Check that `renv.lock` repositories match `Config/intent/repos/`.
+- Check source policy violations.
+- Check for packages outside the dependency closure rooted at `DESCRIPTION`
+  dependencies and bootstrap packages.
+- Return machine-readable output with `--json`.
+- Exit with an error when verification fails.
+
 ## JSON Output Format
 
 ### `intent status --json`
@@ -164,6 +190,33 @@ Shows drift without mutating state.
     "exempt_packages": ["intent", "renv", "pak"]
   },
   "source_violations": []
+}
+```
+
+### `intent verify --json`
+
+```json
+{
+  "project": "/path/to/project",
+  "ok": false,
+  "issues": [
+    {
+      "check": "repositories",
+      "severity": "error",
+      "message": "renv.lock contains repositories not declared in DESCRIPTION: CRAN"
+    }
+  ],
+  "status": {
+    "project": "/path/to/project",
+    "manifest_packages": ["dplyr"],
+    "locked_packages": ["dplyr"],
+    "missing_from_lockfile": [],
+    "extra_in_lockfile": [],
+    "library_path": "/path/to/project/renv/library",
+    "missing_from_library": [],
+    "source_policy": {},
+    "source_violations": []
+  }
 }
 ```
 

@@ -11,6 +11,26 @@ status <- function(project = NULL) {
   cmd_status(project = project)
 }
 
+#' Verify Project Contract
+#'
+#' Checks whether the project manifest, repository policy, lockfile, and local
+#' library satisfy intent's project contract without changing project state.
+#'
+#' @param project Path to the project directory. Defaults to the current intent project.
+#'
+#' @return An `intent_verification` object containing `ok`, `issues`, and the
+#'   underlying `intent_status`.
+#' @export
+verify <- function(project = NULL) {
+  cmd_verify(project = project)
+}
+
+#' @rdname verify
+#' @export
+doctor <- function(project = NULL) {
+  verify(project = project)
+}
+
 #' @export
 print.intent_status <- function(x, ...) {
   cat("Project: ", x$project, "\n", sep = "")
@@ -22,6 +42,33 @@ print.intent_status <- function(x, ...) {
   print_status_count("Extra in lockfile", x$extra_in_lockfile)
   print_status_count("Missing from library", x$missing_from_library)
   print_source_violations(x$source_violations)
+
+  invisible(x)
+}
+
+#' @export
+print.intent_verification <- function(x, ...) {
+  cat("Project: ", x$project, "\n", sep = "")
+  cat("Verification: ", if (isTRUE(x$ok)) "OK" else "FAILED", "\n", sep = "")
+
+  if (nrow(x$issues) == 0) {
+    cat("Issues: 0\n")
+  } else {
+    cat("Issues: ", nrow(x$issues), "\n", sep = "")
+    for (i in seq_len(nrow(x$issues))) {
+      issue <- x$issues[i, , drop = FALSE]
+      cat(
+        "  - [",
+        issue$severity,
+        "] ",
+        issue$check,
+        ": ",
+        issue$message,
+        "\n",
+        sep = ""
+      )
+    }
+  }
 
   invisible(x)
 }
@@ -80,6 +127,13 @@ print_source_violations <- function(violations) {
 #' @export
 as.character.intent_status <- function(x, ...) {
   jsonlite::toJSON(unclass(x), auto_unbox = TRUE, pretty = FALSE)
+}
+
+#' @export
+as.character.intent_verification <- function(x, ...) {
+  out <- unclass(x)
+  out$status <- unclass(out$status)
+  jsonlite::toJSON(out, auto_unbox = TRUE, pretty = FALSE)
 }
 
 #' @export

@@ -18,6 +18,8 @@ cli_main <- function(args) {
     remove = cli_remove(command_args),
     sync = cli_sync(command_args),
     status = cli_status(command_args),
+    verify = cli_verify(command_args),
+    doctor = cli_verify(command_args),
     stop("Unknown command: ", command, call. = FALSE)
   )
 }
@@ -97,6 +99,26 @@ cli_status <- function(args) {
   result <- cmd_status(project = parsed$project)
   if (parsed$json) {
     cat(as.character(result), "\n", sep = "")
+  } else {
+    print(result)
+  }
+  invisible(result)
+}
+
+cli_verify <- function(args) {
+  parsed <- cli_parse_common(args)
+  if (length(parsed$args) > 0) {
+    stop("`intent verify` does not accept package arguments.", call. = FALSE)
+  }
+
+  result <- cmd_verify(project = parsed$project)
+  if (parsed$json) {
+    cat(as.character(result), "\n", sep = "")
+  } else {
+    print(result)
+  }
+  if (!isTRUE(result$ok)) {
+    stop("Project verification failed.", call. = FALSE)
   }
   invisible(result)
 }
@@ -207,6 +229,8 @@ cli_print_help <- function() {
       "  intent remove [--project path] [--dry-run] <package>...",
       "  intent sync [--project path] [--dry-run] [--json] [--no-prune]",
       "  intent status [--project path] [--json]",
+      "  intent verify [--project path] [--json]",
+      "  intent doctor [--project path] [--json]",
       sep = "\n"
     ),
     "\n"
